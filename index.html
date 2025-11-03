@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VPN Shop Mini App</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        body {
+            /* Используем цвета из темы Telegram */
+            background-color: var(--tg-theme-bg-color, #ffffff);
+            color: var(--tg-theme-text-color, #000000);
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            text-align: center;
+        }
+        .card {
+            background-color: var(--tg-theme-secondary-bg-color, #f0f0f0);
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 15px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+        .price {
+            font-size: 1.5em;
+            font-weight: bold;
+            color: var(--tg-theme-button-color, #2481cc);
+            margin: 10px 0;
+        }
+        .buy-button {
+            background-color: var(--tg-theme-button-color, #2481cc);
+            color: var(--tg-theme-button-text-color, #ffffff);
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1em;
+            width: 100%;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Выберите ваш тариф VPN</h1>
+
+    <div class="card" id="card_month">
+        <h2>🚀 Месяц</h2>
+        <p>Высокая скорость, без ограничений.</p>
+        <div class="price">300 RUB</div>
+        <button class="buy-button" onclick="buyPlan('month')">Купить на месяц</button>
+    </div>
+
+    <div class="card" id="card_year">
+        <h2>💎 Год (Скидка)</h2>
+        <p>Самый выгодный тариф!</p>
+        <div class="price">2900 RUB</div>
+        <button class="buy-button" onclick="buyPlan('year')">Купить на год</button>
+    </div>
+
+    <script>
+        // Проверяем, что SDK Telegram загружен
+        const WebApp = window.Telegram.WebApp;
+
+        // Инициализация. Показываем главную кнопку, если это Mini App
+        WebApp.ready();
+        
+        // Функция, которая отправляет данные обратно боту
+        function buyPlan(plan) {
+            // WebApp.sendData() - это функция, которая отправляет строку (JSON) боту
+            // Бот получит это как обычное текстовое сообщение
+            const data = {
+                action: 'purchase',
+                plan: plan
+            };
+
+            // Отправляем JSON-строку
+            WebApp.sendData(JSON.stringify(data));
+            
+            // Закрываем Mini App после отправки данных
+            WebApp.close();
+        }
+        
+        // Устанавливаем цвет кнопки в приложении
+        WebApp.MainButton.setText("Продолжить");
+        WebApp.MainButton.onClick(function() {
+            // Эту кнопку можно использовать для финальной проверки или отправки данных
+        });
+        
+    </script>
+</body>
+</html>
