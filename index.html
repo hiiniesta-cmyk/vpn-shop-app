@@ -510,97 +510,6 @@
             color: #4a5568;
         }
 
-        /* Payment Section */
-        .payment-section {
-            text-align: center;
-            padding: 60px 20px;
-        }
-
-        .payment-section h2 {
-            font-size: 2.5em;
-            color: #00d4ff;
-            margin-bottom: 40px;
-            animation: fadeInDown 0.8s ease-out;
-        }
-
-        body.light-theme .payment-section h2 {
-            color: #007bff;
-        }
-
-        .payment-options {
-            display: flex;
-            justify-content: center;
-            flex-wrap: wrap;
-            gap: 20px;
-        }
-
-        .payment-btn {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            padding: 30px 20px;
-            background: rgba(255, 255, 255, 0.05);
-            border: 2px solid rgba(123, 44, 191, 0.5);
-            border-radius: 20px;
-            width: 250px;
-            text-decoration: none;
-            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            backdrop-filter: blur(10px);
-            cursor: pointer;
-        }
-
-        body.light-theme .payment-btn {
-            background: rgba(0, 123, 255, 0.05);
-            border-color: rgba(0, 123, 255, 0.5);
-        }
-
-        .payment-btn:hover {
-            transform: translateY(-8px) scale(1.03);
-            border-color: #00d4ff;
-            box-shadow: 0 15px 35px rgba(123, 44, 191, 0.5);
-        }
-
-        body.light-theme .payment-btn:hover {
-            border-color: #007bff;
-            box-shadow: 0 15px 35px rgba(0, 123, 255, 0.3);
-        }
-
-        .payment-price {
-            font-size: 2.2em;
-            font-weight: bold;
-            color: #ff006e; /* Розовый/Пурпурный акцент */
-            margin-bottom: 5px;
-        }
-
-        body.light-theme .payment-price {
-            color: #ec4899; /* Соответствующий розовый */
-        }
-
-        .payment-period {
-            font-size: 1.1em;
-            color: #e0e0e0;
-            margin-bottom: 10px;
-        }
-
-        body.light-theme .payment-period {
-            color: #2d3748;
-        }
-
-        .payment-feature {
-            font-size: 0.9em;
-            color: #b0b0b0;
-            margin-top: 15px;
-            border-top: 1px solid rgba(255, 255, 255, 0.1);
-            padding-top: 10px;
-            width: 100%;
-        }
-
-        body.light-theme .payment-feature {
-            color: #4a5568;
-            border-top-color: rgba(0, 0, 0, 0.1);
-        }
-
-
         /* Download CTA */
         .download-cta {
             text-align: center;
@@ -878,27 +787,6 @@
             </div>
         </section>
 
-        <section class="payment-section">
-            <h2>💰 Выберите свой план</h2>
-            <div class="payment-options">
-                <button class="payment-btn" onclick="openPaymentLink('ССЫЛКА_НА_ОПЛАТУ_1_МЕСЯЦ')">
-                    <div class="payment-price">300₽</div>
-                    <div class="payment-period">1 Месяц</div>
-                    <div class="payment-feature">Максимальная скорость • 1 устройство</div>
-                </button>
-                <button class="payment-btn" onclick="openPaymentLink('ССЫЛКА_НА_ОПЛАТУ_6_МЕСЯЦЕВ')">
-                    <div class="payment-price">1500₽</div>
-                    <div class="payment-period">6 Месяцев <span style="color: #00d4ff; font-weight: bold;">(Скидка!)</span></div>
-                    <div class="payment-feature">Всё включено • 3 устройства</div>
-                </button>
-                <button class="payment-btn" onclick="openPaymentLink('ССЫЛКА_НА_ОПЛАТУ_12_МЕСЯЦЕВ')">
-                    <div class="payment-price">2500₽</div>
-                    <div class="payment-period">12 Месяцев <span style="color: #ff006e; font-weight: bold;">(Лучшая цена!)</span></div>
-                    <div class="payment-feature">VIP доступ • До 5 устройств</div>
-                </button>
-            </div>
-        </section>
-
         <section class="download-cta">
             <h2>🚀 Начните прямо сейчас!</h2>
             <p>Скачайте Shinobu Proxy и получите 1 день бесплатного использования</p>
@@ -971,48 +859,11 @@
             }
         });
 
-        // Функция скачивания VPN (для кнопок внутри страницы) - ИЗМЕНЕНА для прямой ссылки
-        const DOWNLOAD_LINK = 'https://github.com/2dust/v2rayNG/releases/download/1.10.23/v2rayNG_1.10.23_universal.apk'; // !!! ВСТАВЬТЕ СЮДА СВОЮ ССЫЛКУ !!!
-
+        // Функция скачивания VPN (для кнопок внутри страницы)
         function downloadVPN() {
-            console.log('Download button clicked');
-            console.log('DOWNLOAD_LINK:', DOWNLOAD_LINK);
-
-            if (DOWNLOAD_LINK.includes('https://github.com/2dust/v2rayNG/releases/download/1.10.23/v2rayNG_1.10.23_universal.apk')) {
-                // Если ссылка не заменена, показываем старую инструкцию
-                alert('⚠️ Пожалуйста, замените заглушку ссылки в коде.\n\n📱 Для скачивания, следуйте инструкциям для бота: @Iniestauufguubot');
-            } else {
-                // Прямой переход по ссылке для скачивания
-                window.location.href = DOWNLOAD_LINK;
-                
-                // В Telegram, после начала загрузки, можно закрыть Mini App
-                if (isInTelegram && tg) {
-                    // Даем короткое время для начала загрузки, затем закрываем
-                    setTimeout(() => {
-                        tg.close();
-                    }, 1500);
-                }
-            }
-        }
-
-        // Функция открытия ссылки для оплаты - НОВАЯ
-        function openPaymentLink(paymentUrl) {
-            console.log('Payment button clicked:', paymentUrl);
-
-            if (paymentUrl.includes('ССЫЛКА_НА_ОПЛАТУ')) {
-                // Инструкция, если ссылка не заменена
-                alert('⚠️ Пожалуйста, замените заглушки ссылок на оплату в коде!');
-                return;
-            }
-
-            // Прямой переход по ссылке для оплаты
-            window.location.href = paymentUrl;
-
-            // В Telegram Mini App (TWA) это обычно работает. Если нужно использовать TWA openLink:
-            // if (isInTelegram && tg) {
-            //     tg.openLink(paymentUrl);
-            //     tg.close();
-            // }
+            // Прямая ссылка на скачивание APK-файла, согласно запросу пользователя
+            window.location.href = 'https://github.com/2dust/v2rayNG/releases/download/1.10.23/v2rayNG_1.10.23_universal.apk';
+            console.log('Redirecting to direct APK download link.');
         }
 
         // Показать popup
