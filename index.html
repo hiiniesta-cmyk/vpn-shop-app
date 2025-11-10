@@ -3,8 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VPN Shop Mini App</title>
-    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <title>SecureVPN - Безопасный VPN для России v2.3</title>
+    <script src="https://telegram.org/js/telegram-web-app.js?v=2.2"></script>
     <style>
         * {
             margin: 0;
@@ -13,104 +16,915 @@
         }
 
         body {
-            /* Используем цвета из темы Telegram */
-            color: var(--tg-theme-text-color, #000000);
-            background: var(--tg-theme-bg-color, #ffffff);
-            font-family: Arial, sans-serif;
-            padding: 20px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #0d0d0d;
+            color: #e0e0e0;
+            overflow-x: hidden;
+            min-height: 100vh;
+            position: relative;
+            transition: background 0.5s ease, color 0.5s ease;
         }
 
-        .Main {
+        body.light-theme {
+            background: #f5f7fa;
+            color: #2d3748;
+        }
+
+        /* Theme Toggle Button */
+        .theme-toggle {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            width: 60px;
+            height: 60px;
+            background: rgba(0, 212, 255, 0.15);
+            border: 2px solid rgba(0, 212, 255, 0.5);
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5em;
+            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
+            z-index: 1000;
+            animation: fadeIn 1s ease-out;
+        }
+
+        .theme-toggle:hover {
+            background: rgba(0, 212, 255, 0.25);
+            transform: scale(1.1) rotate(15deg);
+            box-shadow: 0 0 20px rgba(0, 212, 255, 0.5);
+        }
+
+        body.light-theme .theme-toggle {
+            background: rgba(0, 123, 255, 0.1);
+            border-color: rgba(0, 123, 255, 0.5);
+        }
+
+        body.light-theme .theme-toggle:hover {
+            background: rgba(0, 123, 255, 0.2);
+            box-shadow: 0 0 20px rgba(0, 123, 255, 0.4);
+        }
+
+        /* Animated background grid */
+        .grid-background {
+            position: fixed;
+            top: 0;
+            left: 0;
             width: 100%;
-            padding: 0;
+            height: 100%;
+            background-image: 
+                linear-gradient(rgba(0, 212, 255, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 212, 255, 0.03) 1px, transparent 1px);
+            background-size: 50px 50px;
+            animation: gridMove 20s linear infinite;
+            z-index: 0;
+            transition: opacity 0.5s ease;
+        }
+
+        body.light-theme .grid-background {
+            background-image: 
+                linear-gradient(rgba(0, 123, 255, 0.08) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 123, 255, 0.08) 1px, transparent 1px);
+        }
+
+        @keyframes gridMove {
+            0% {
+                transform: translate(0, 0);
+            }
+            100% {
+                transform: translate(50px, 50px);
+            }
+        }
+
+        /* Animated gradient orbs */
+        .orb {
+            position: fixed;
+            border-radius: 50%;
+            filter: blur(80px);
+            opacity: 0.4;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        .orb1 {
+            width: 400px;
+            height: 400px;
+            background: radial-gradient(circle, #00d4ff, transparent);
+            top: -200px;
+            left: -200px;
+            animation: orbFloat1 15s ease-in-out infinite;
+        }
+
+        body.light-theme .orb1 {
+            background: radial-gradient(circle, rgba(0, 123, 255, 0.3), transparent);
+        }
+
+        .orb2 {
+            width: 500px;
+            height: 500px;
+            background: radial-gradient(circle, #7b2cbf, transparent);
+            bottom: -250px;
+            right: -250px;
+            animation: orbFloat2 20s ease-in-out infinite;
+        }
+
+        body.light-theme .orb2 {
+            background: radial-gradient(circle, rgba(99, 102, 241, 0.25), transparent);
+        }
+
+        .orb3 {
+            width: 300px;
+            height: 300px;
+            background: radial-gradient(circle, #ff006e, transparent);
+            top: 50%;
+            left: 50%;
+            animation: orbFloat3 18s ease-in-out infinite;
+        }
+
+        body.light-theme .orb3 {
+            background: radial-gradient(circle, rgba(236, 72, 153, 0.2), transparent);
+        }
+
+        @keyframes orbFloat1 {
+            0%, 100% { transform: translate(0, 0) scale(1); }
+            33% { transform: translate(100px, 150px) scale(1.2); }
+            66% { transform: translate(-50px, 100px) scale(0.8); }
+        }
+
+        @keyframes orbFloat2 {
+            0%, 100% { transform: translate(0, 0) scale(1); }
+            33% { transform: translate(-100px, -100px) scale(1.1); }
+            66% { transform: translate(50px, -150px) scale(0.9); }
+        }
+
+        @keyframes orbFloat3 {
+            0%, 100% { transform: translate(-50%, -50%) scale(1); }
+            50% { transform: translate(calc(-50% + 200px), calc(-50% - 100px)) scale(1.3); }
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* Header */
+        header {
+            text-align: center;
+            padding: 60px 20px 40px;
+            animation: fadeInDown 0.8s ease-out;
+        }
+
+        .logo {
+            font-size: 2.8em;
+            font-weight: bold;
+            background: linear-gradient(45deg, #00d4ff, #7b2cbf, #00d4ff);
+            background-size: 200% 200%;
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 10px;
+            animation: gradientShift 3s ease infinite, glowPulse 2s ease-in-out infinite;
+            filter: drop-shadow(0 0 20px rgba(0, 212, 255, 0.5));
+        }
+
+        @keyframes gradientShift {
+            0%, 100% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+        }
+
+        @keyframes glowPulse {
+            0%, 100% { filter: drop-shadow(0 0 20px rgba(0, 212, 255, 0.5)); }
+            50% { filter: drop-shadow(0 0 40px rgba(123, 44, 191, 0.8)); }
+        }
+
+        .tagline {
+            font-size: 1.2em;
+            color: #b0b0b0;
+            margin-bottom: 30px;
+            animation: fadeIn 1s ease-out 0.3s backwards;
+        }
+
+        body.light-theme .tagline {
+            color: #2d3748;
+        }
+
+        /* Hero Section */
+        .hero {
+            text-align: center;
+            padding: 40px 20px;
+            animation: fadeIn 1s ease-out 0.5s backwards;
+        }
+
+        .hero h1 {
+            font-size: 3em;
+            margin-bottom: 20px;
+            background: linear-gradient(45deg, #ffffff, #00d4ff, #7b2cbf, #ffffff);
+            background-size: 300% 300%;
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            animation: gradientFlow 5s ease infinite, titleFloat 3s ease-in-out infinite;
+        }
+
+        @keyframes gradientFlow {
+            0%, 100% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+        }
+
+        @keyframes titleFloat {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+
+        .hero p {
+            font-size: 1.1em;
+            line-height: 1.8;
+            color: #c0c0c0;
+            max-width: 700px;
+            margin: 0 auto 40px;
+            animation: fadeIn 1.2s ease-out 0.7s backwards;
+        }
+
+        body.light-theme .hero p {
+            color: #2d3748;
+        }
+
+        /* Transparent Buttons */
+        .btn {
+            display: inline-block;
+            padding: 18px 45px;
+            margin: 10px;
+            background: rgba(0, 212, 255, 0.08);
+            border: 2px solid rgba(0, 212, 255, 0.5);
+            color: #00d4ff;
+            text-decoration: none;
+            font-size: 1.1em;
+            font-weight: 600;
+            border-radius: 50px;
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            position: relative;
+            overflow: hidden;
+            backdrop-filter: blur(10px);
+            animation: fadeInUp 1s ease-out 0.9s backwards;
+            cursor: pointer;
+        }
+
+        body.light-theme .btn {
+            background: rgba(0, 123, 255, 0.15);
+            border-color: rgba(0, 123, 255, 0.6);
+            color: #0056b3;
+        }
+
+        body.light-theme .btn:hover {
+            background: rgba(0, 123, 255, 0.25);
+            border-color: #0056b3;
+            color: #003d82;
+        }
+
+        .btn:before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            border-radius: 50%;
+            background: rgba(0, 212, 255, 0.2);
+            transform: translate(-50%, -50%);
+            transition: width 0.6s, height 0.6s;
+        }
+
+        .btn:after {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: linear-gradient(45deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+            transform: rotate(45deg);
+            animation: shimmer 3s infinite;
+        }
+
+        @keyframes shimmer {
+            0% { transform: translateX(-100%) rotate(45deg); }
+            100% { transform: translateX(100%) rotate(45deg); }
+        }
+
+        .btn:hover:before {
+            width: 400px;
+            height: 400px;
+        }
+
+        .btn:hover {
+            background: rgba(0, 212, 255, 0.15);
+            border-color: #00d4ff;
+            box-shadow: 0 0 30px rgba(0, 212, 255, 0.6), inset 0 0 20px rgba(0, 212, 255, 0.2);
+            transform: translateY(-5px) scale(1.05);
+        }
+
+        .btn span {
+            position: relative;
+            z-index: 1;
+        }
+
+        .btn-primary {
+            background: rgba(0, 212, 255, 0.2);
+            border-color: #00d4ff;
+            box-shadow: 0 0 15px rgba(0, 212, 255, 0.4);
+            animation: fadeInUp 1s ease-out 0.9s backwards;
+        }
+
+        body.light-theme .btn-primary {
+            background: #007bff;
+            border-color: #007bff;
+            color: #ffffff;
+            box-shadow: 0 4px 15px rgba(0, 123, 255, 0.3);
+        }
+
+        .btn-primary:hover {
+            background: rgba(0, 212, 255, 0.3);
+            box-shadow: 0 0 30px rgba(0, 212, 255, 0.8);
+        }
+
+        body.light-theme .btn-primary:hover {
+            background: #0056b3;
+            border-color: #0056b3;
+            color: #ffffff;
+            box-shadow: 0 6px 20px rgba(0, 123, 255, 0.4);
+        }
+
+        .btn-large {
+            padding: 22px 60px;
+            font-size: 1.3em;
+        }
+
+        /* Features Grid */
+        .features {
+            padding: 60px 20px;
+        }
+
+        .features h2 {
+            animation: fadeInDown 0.8s ease-out;
+        }
+
+        body.light-theme .features h2 {
+            color: #007bff;
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 25px;
+            margin-top: 30px;
+        }
+
+        .feature-box {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(0, 212, 255, 0.3);
+            padding: 30px;
+            border-radius: 15px;
+            text-align: center;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+            animation: fadeInUp 0.8s ease-out;
+        }
+
+        body.light-theme .feature-box {
+            background: rgba(255, 255, 255, 0.9);
+            border-color: rgba(0, 123, 255, 0.3);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+        }
+
+        .feature-box:hover {
+            transform: translateY(-10px);
+            border-color: #00d4ff;
+            box-shadow: 0 10px 30px rgba(0, 212, 255, 0.3);
+        }
+
+        body.light-theme .feature-box:hover {
+            border-color: #007bff;
+            box-shadow: 0 10px 30px rgba(0, 123, 255, 0.2);
+        }
+
+        .feature-icon-large {
+            font-size: 3.5em;
+            margin-bottom: 15px;
+            filter: drop-shadow(0 0 10px rgba(0, 212, 255, 0.5));
+        }
+
+        .feature-box h3 {
+            color: #00d4ff;
+            margin-bottom: 10px;
+            font-size: 1.3em;
+        }
+
+        body.light-theme .feature-box h3 {
+            color: #007bff;
+        }
+
+        .feature-box p {
+            color: #b0b0b0;
+            font-size: 0.95em;
+            line-height: 1.5;
+        }
+
+        body.light-theme .feature-box p {
+            color: #4a5568;
+        }
+
+        /* Stats Section */
+        .stats-section {
+            padding: 60px 20px;
             text-align: center;
         }
 
-        h1 {
-            margin-top: 5px;
-            margin-bottom: 20px;
-            font-size: 1.8em;
+        .stats-section h2 {
+            animation: fadeInDown 0.8s ease-out;
         }
-        
-        .card {
-            background-color: var(--tg-theme-secondary-bg-color, #f0f0f0);
-            border-radius: 10px;
-            padding: 15px;
-            margin-bottom: 15px;
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-            text-align: left;
+
+        body.light-theme .stats-section h2 {
+            color: #007bff;
         }
-        
-        .card h2 {
-            color: var(--tg-theme-text-color, #000000);
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 30px;
+            margin-top: 30px;
+            max-width: 800px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .stat-card {
+            background: rgba(0, 212, 255, 0.1);
+            border: 2px solid rgba(0, 212, 255, 0.3);
+            padding: 30px 20px;
+            border-radius: 15px;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+            animation: fadeInUp 0.8s ease-out;
+        }
+
+        body.light-theme .stat-card {
+            background: rgba(0, 123, 255, 0.08);
+            border-color: rgba(0, 123, 255, 0.3);
+        }
+
+        .stat-card:hover {
+            transform: scale(1.1);
+            border-color: #00d4ff;
+            box-shadow: 0 0 30px rgba(0, 212, 255, 0.5);
+        }
+
+        body.light-theme .stat-card:hover {
+            border-color: #007bff;
+            box-shadow: 0 0 30px rgba(0, 123, 255, 0.3);
+        }
+
+        .stat-number {
+            font-size: 2.5em;
+            font-weight: bold;
+            color: #00d4ff;
             margin-bottom: 5px;
         }
-        
-        .price {
-            font-size: 1.4em;
-            font-weight: bold;
-            color: var(--tg-theme-link-color, #2481cc);
-            margin: 10px 0;
-            text-align: right;
+
+        body.light-theme .stat-number {
+            color: #007bff;
         }
-        
-        /* Стилизуем тег <a> так, чтобы он выглядел как кнопка */
-        .buy-link {
-            display: block;
-            text-decoration: none;
+
+        .stat-label {
+            font-size: 1em;
+            color: #b0b0b0;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        body.light-theme .stat-label {
+            color: #4a5568;
+        }
+
+        /* Download CTA */
+        .download-cta {
             text-align: center;
-            
-            border: 0;
-            border-radius: 5px;
-            margin-top: 10px;
-            height: 50px;
-            line-height: 50px;
+            padding: 80px 20px;
+            background: rgba(0, 212, 255, 0.08);
+            border-radius: 20px;
+            margin: 40px 20px;
+            backdrop-filter: blur(10px);
+            animation: fadeInUp 1s ease-out;
+        }
+
+        body.light-theme .download-cta {
+            background: rgba(0, 123, 255, 0.08);
+        }
+
+        .download-cta h2 {
+            font-size: 2.5em;
+            color: #ffffff;
+            margin-bottom: 15px;
+        }
+
+        body.light-theme .download-cta h2 {
+            color: #1a202c;
+        }
+
+        .download-cta p {
+            font-size: 1.2em;
+            color: #c0c0c0;
+            margin-bottom: 30px;
+        }
+
+        body.light-theme .download-cta p {
+            color: #4a5568;
+        }
+
+        /* Animations */
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @keyframes fadeInDown {
+            from {
+                opacity: 0;
+                transform: translateY(-30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Success popup */
+        .popup-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
             width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 9999;
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        .popup {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: linear-gradient(135deg, #1a1a2e, #16213e);
+            padding: 40px;
+            border-radius: 20px;
+            border: 2px solid rgba(0, 212, 255, 0.5);
+            box-shadow: 0 20px 60px rgba(0, 212, 255, 0.3);
+            text-align: center;
+            max-width: 400px;
+            width: 90%;
+            animation: popupAppear 0.4s ease-out;
+        }
+
+        body.light-theme .popup {
+            background: linear-gradient(135deg, #ffffff, #f0f4f8);
+            border-color: rgba(0, 123, 255, 0.5);
+            box-shadow: 0 20px 60px rgba(0, 123, 255, 0.3);
+        }
+
+        @keyframes popupAppear {
+            from {
+                opacity: 0;
+                transform: translate(-50%, -50%) scale(0.8);
+            }
+            to {
+                opacity: 1;
+                transform: translate(-50%, -50%) scale(1);
+            }
+        }
+
+        .popup-icon {
+            font-size: 4em;
+            margin-bottom: 20px;
+            animation: bounce 1s ease-in-out;
+        }
+
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-20px); }
+        }
+
+        .popup h2 {
+            color: #00d4ff;
+            margin-bottom: 15px;
+            font-size: 1.8em;
+        }
+
+        body.light-theme .popup h2 {
+            color: #007bff;
+        }
+
+        .popup p {
+            color: #c0c0c0;
+            margin-bottom: 30px;
+            line-height: 1.6;
+        }
+
+        body.light-theme .popup p {
+            color: #2d3748;
+        }
+
+        .popup-btn {
+            padding: 15px 40px;
+            background: #00d4ff;
+            border: none;
+            border-radius: 50px;
+            color: #000;
             font-size: 1.1em;
-            font-weight: bold;
+            font-weight: 600;
             cursor: pointer;
-            color: var(--tg-theme-button-text-color, #ffffff);
-            background: var(--tg-theme-button-color, #2481cc);
+            transition: all 0.3s ease;
+        }
+
+        body.light-theme .popup-btn {
+            background: #007bff;
+            color: #ffffff;
+        }
+
+        .popup-btn:hover {
+            background: #00a8cc;
+            transform: scale(1.05);
+            box-shadow: 0 5px 20px rgba(0, 212, 255, 0.5);
+        }
+
+        body.light-theme .popup-btn:hover {
+            background: #0056b3;
+            box-shadow: 0 5px 20px rgba(0, 123, 255, 0.4);
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .hero h1 {
+                font-size: 2em;
+            }
+            
+            .logo {
+                font-size: 2em;
+            }
+
+            .btn {
+                padding: 15px 35px;
+                font-size: 1em;
+            }
         }
     </style>
 </head>
 <body>
-    <div class="Main">
-        <h1>Инструкция по настройке VPN</h1>
+    <!-- Version indicator -->
+    <div style="position: fixed; bottom: 5px; right: 5px; background: rgba(0,0,0,0.5); color: white; padding: 3px 8px; font-size: 10px; border-radius: 3px; z-index: 10000;">
+        v2.3
+    </div>
+    
+    <!-- Theme Toggle -->
+    <button class="theme-toggle" onclick="toggleTheme()" aria-label="Переключить тему">
+        <span class="theme-icon">🌙</span>
+    </button>
 
-        <div class="card">
-            <h2>🚀 Андроид</h2>
-            <p></p>
-            <div class="price"></div>
-            <a class="buy-link" href="https://telegra.ph/Kak-podklyuchitsya-k-Proxy-10-13" target="_blank">Установка на Андроид</a>
+    <!-- Popup -->
+    <div class="popup-overlay" id="popupOverlay">
+        <div class="popup">
+            <div class="popup-icon">📱</div>
+            <h2>Скачать VPN</h2>
+            <p>Закройте это окно и нажмите кнопку "Скачать VPN" в чате с ботом</p>
+            <button class="popup-btn" onclick="closePopup()">Вернуться в чат</button>
         </div>
-
-        <div class="card">
-            <h2>✨ IOS</h2>
-            <p></p>
-            <div class="price"></div>
-            <a class="buy-link" href="https://telegra.ph/Kak-podklyuchitsya-k-Proxy-10-13-5" target="_blank">Установка на IOS</a>
-        </div>
-        
-        <div class="card">
-            <h2>🌟 Windows</h2>
-            <p></p>
-            <div class="price"></div>
-            <a class="buy-link" href="https://telegra.ph/Kak-podklyuchitsya-k-Proxy-10-13-3" target="_blank">Установка на Windows</a>
-        </div>
-
-        <div class="card">
-            <h2>💎 Андроид TV</h2>
-            <p></p>
-            <div class="price"></div>
-            <a class="buy-link" href="https://telegra.ph/Kak-podklyuchitsya-k-Proxy-10-13-4" target="_blank">Установка на Андроид TV</a>
-        </div>
-        
     </div>
 
-    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <!-- Animated background -->
+    <div class="grid-background"></div>
+
+    <!-- Animated orbs -->
+    <div class="orb orb1"></div>
+    <div class="orb orb2"></div>
+    <div class="orb orb3"></div>
+
+    <div class="container">
+        <!-- Header -->
+        <header>
+            <div class="logo">🔒 SecureVPN</div>
+            <div class="tagline">Ваша приватность — наш приоритет</div>
+        </header>
+
+        <!-- Hero Section -->
+        <section class="hero">
+            <h1>Свобода и безопасность в интернете</h1>
+            <p>
+                SecureVPN — это надёжный и быстрый VPN-сервис, специально оптимизированный для работы в России. 
+                Защитите свои данные, обходите блокировки и наслаждайтесь свободным интернетом на вашем Android устройстве. 
+                Никаких логов, военное шифрование и серверы по всему миру.
+            </p>
+            <div>
+                <button class="btn btn-primary" onclick="downloadVPN()"><span>📱 Скачать для Android</span></button>
+            </div>
+        </section>
+
+        <!-- Features Grid -->
+        <section class="features">
+            <h2 style="text-align: center; font-size: 2em; margin-bottom: 30px; color: #00d4ff;">🌟 Преимущества SecureVPN</h2>
+            <div class="features-grid">
+                <div class="feature-box">
+                    <div class="feature-icon-large">⚡</div>
+                    <h3>Максимальная скорость</h3>
+                    <p>Высокоскоростные серверы без ограничений скорости для комфортного просмотра и загрузки</p>
+                </div>
+                <div class="feature-box">
+                    <div class="feature-icon-large">🛡️</div>
+                    <h3>Защита данных</h3>
+                    <p>AES-256 шифрование военного уровня для защиты всех ваших данных</p>
+                </div>
+                <div class="feature-box">
+                    <div class="feature-icon-large">🌍</div>
+                    <h3>50+ стран</h3>
+                    <p>Более 1000 серверов по всему миру для обхода любых ограничений</p>
+                </div>
+                <div class="feature-box">
+                    <div class="feature-icon-large">🇷🇺</div>
+                    <h3>Работает в России</h3>
+                    <p>Специально оптимизирован для стабильной работы в РФ</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Stats Section -->
+        <section class="stats-section">
+            <h2 style="text-align: center; font-size: 2em; margin-bottom: 30px; color: #00d4ff;">📊 Статистика</h2>
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-number">50+</div>
+                    <div class="stat-label">Стран</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">1000+</div>
+                    <div class="stat-label">Серверов</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">99.9%</div>
+                    <div class="stat-label">Uptime</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">24/7</div>
+                    <div class="stat-label">Поддержка</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Download CTA -->
+        <section class="download-cta">
+            <h2>🚀 Начните прямо сейчас!</h2>
+            <p>Скачайте SecureVPN и получите 7 дней бесплатного использования</p>
+            <button class="btn btn-primary btn-large" onclick="downloadVPN()"><span>📥 Скачать бесплатно</span></button>
+            <p style="margin-top: 15px; font-size: 0.9em; opacity: 0.7;">Без регистрации карты • Без обязательств</p>
+        </section>
+    </div>
+
     <script>
-        window.Telegram.WebApp.ready();
+        // Глобальные переменные
+        let tg = null;
+        let isInTelegram = false;
+        
+        // Ждем полной загрузки страницы
+        window.addEventListener('load', function() {
+            // Проверяем наличие Telegram WebApp
+            if (!window.Telegram || !window.Telegram.WebApp) {
+                console.log('Not in Telegram environment');
+                return;
+            }
+            
+            // Инициализация Telegram Web App
+            tg = window.Telegram.WebApp;
+            tg.expand();
+
+            // Определяем, запущено ли приложение в Telegram
+            isInTelegram = tg.initData !== '';
+            
+            console.log('Telegram WebApp initialized');
+            console.log('Platform:', tg.platform);
+            console.log('Is in Telegram:', isInTelegram);
+        });
+
+        // Theme Toggle Function
+        function toggleTheme() {
+            const body = document.body;
+            const themeIcon = document.querySelector('.theme-icon');
+            
+            body.classList.toggle('light-theme');
+            
+            if (body.classList.contains('light-theme')) {
+                themeIcon.textContent = '☀️';
+                try {
+                    localStorage.setItem('theme', 'light');
+                } catch (e) {
+                    console.log('localStorage not available');
+                }
+            } else {
+                themeIcon.textContent = '🌙';
+                try {
+                    localStorage.setItem('theme', 'dark');
+                } catch (e) {
+                    console.log('localStorage not available');
+                }
+            }
+        }
+
+        // Load saved theme
+        window.addEventListener('DOMContentLoaded', () => {
+            try {
+                const savedTheme = localStorage.getItem('theme');
+                const themeIcon = document.querySelector('.theme-icon');
+                
+                if (savedTheme === 'light') {
+                    document.body.classList.add('light-theme');
+                    themeIcon.textContent = '☀️';
+                }
+            } catch (e) {
+                console.log('localStorage not available - using default theme');
+            }
+        });
+
+        // Функция скачивания VPN (для кнопок внутри страницы)
+        function downloadVPN() {
+            console.log('Download button clicked');
+            console.log('isInTelegram:', isInTelegram);
+            console.log('tg:', tg);
+            
+            if (isInTelegram && tg) {
+                console.log('In Telegram - showing hint and closing Mini App');
+                
+                // Показываем ненавязчивую подсказку (toast)
+                tg.showPopup({
+                    title: '📱 Как скачать VPN',
+                    message: 'Нажмите кнопку "Скачать VPN" в чате с ботом для получения файла',
+                    buttons: [
+                        {id: 'ok', type: 'default', text: 'Понятно'}
+                    ]
+                }, function(buttonId) {
+                    // После нажатия "Понятно" закрываем Mini App
+                    if (buttonId === 'ok') {
+                        tg.close();
+                    }
+                });
+            } else {
+                console.log('Not in Telegram - showing alert');
+                // Если открыто в обычном браузере - показываем инструкцию
+                alert('📱 Для скачивания APK файла:\n\n1. Откройте Telegram на телефоне\n2. Найдите бота @kjmgnhdbfvscdf_bot\n3. Нажмите /start\n4. Нажмите кнопку "Скачать VPN"\n\nФайл будет отправлен в чат с ботом!');
+            }
+        }
+
+        // Показать popup
+        function showPopup() {
+            const overlay = document.getElementById('popupOverlay');
+            overlay.style.display = 'block';
+        }
+
+        // Закрыть popup и вернуться в чат
+        function closePopup() {
+            const overlay = document.getElementById('popupOverlay');
+            overlay.style.display = 'none';
+            
+            if (isInTelegram) {
+                tg.close();
+            }
+        }
+
+        // Smooth scroll for anchor links
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'start'
+                    });
+                }
+            });
+        });
     </script>
 </body>
 </html>
