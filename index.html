@@ -388,8 +388,10 @@
         let telegramId = null; // ID пользователя Telegram
 
         // КОНФИГУРАЦИЯ СЕРВИСА
-        // ВАЖНО: ЗАМЕНИТЕ ЭТОТ ID НА СВОЙ РЕАЛЬНЫЙ НОМЕР КОШЕЛЬКА YOOMONEY
+        // ========================================================================
+        // ✅ ВАШ РЕАЛЬНЫЙ НОМЕР КОШЕЛЬКА YOOMONEY (15 цифр, начинается с 4100)
         const YOOMONEY_RECIPIENT_ID = '4100119271147598'; 
+        // ========================================================================
         const YOOMONEY_BASE_URL = `https://yoomoney.ru/to/${YOOMONEY_RECIPIENT_ID}`;
         const APP_NAME = 'Shinobu Proxy';
 
@@ -524,11 +526,7 @@
         }
 
         function buySubscription(months, price) {
-            if (YOOMONEY_RECIPIENT_ID === '4100119271147598') {
-                showModal('⚠️ Замена ID', 'Пожалуйста, замените ID кошелька (4100119271147598) на ваш реальный номер YooMoney в коде, чтобы оплата работала!', 'Понятно');
-                return;
-            }
-
+            // Если Telegram ID не определен, показываем ошибку
             if (telegramId === 'NO_TG_ID' || telegramId === 'NO_TG_ID_DEV') {
                 showModal('Ошибка', 'Не удалось определить ваш Telegram ID. Пожалуйста, откройте это Mini App через бота.', 'ОК');
                 return;
@@ -538,6 +536,8 @@
             const comment = `Оплата_${months}мес_TGID_${telegramId}_${APP_NAME}`;
             
             // Формируем динамическую ссылку для перевода
+            // Note: The `paymentType=50` parameter is often used to ensure the comment field is editable/included,
+            // but for the basic to link, we rely on the comment URL parameter.
             const yooMoneyUrl = `${YOOMONEY_BASE_URL}?amount=${price}&comment=${encodeURIComponent(comment)}`;
 
             showModal('Подтверждение оплаты', `Вы будете перенаправлены на YooMoney для оплаты <strong>${price} ₽</strong> за ${months} месяцев. 
