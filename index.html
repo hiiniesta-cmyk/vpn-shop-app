@@ -203,7 +203,7 @@
 </head>
 <body>
     <div class="version-tag">v2.4</div>
-    <button class="theme-toggle" onclick="toggleTheme()" aria-label="Переключить тему">
+    <button class="theme-toggle" id="theme-toggle-btn" aria-label="Переключить тему">
         <span class="theme-icon">Moon</span>
     </button>
 
@@ -213,7 +213,6 @@
     <div class="orb orb3"></div>
 
     <div class="container">
-        <!-- Удален блок ввода API, чтобы вернуть чистое оформление -->
         
         <header>
             <div class="logo">Shinobu Proxy</div>
@@ -221,7 +220,6 @@
             <div style="font-size: 0.8em; opacity: 0.7;">Ваш Telegram ID: <span id="telegram-id-display">Загрузка...</span></div>
         </header>
 
-        <!-- Статус -->
         <section>
             <h2 class="section-title"><i class="fas fa-key"></i> Ваш Статус и Ключ</h2>
             <div class="card">
@@ -235,18 +233,16 @@
                 </div>
                 <div id="vless-container" class="vless-container">
                     <div class="vless-link-box" id="vless-link-display">Загрузка ключа...</div>
-                    <button class="btn vless-copy-btn" onclick="copyVlessLink()"><i class="fas fa-copy"></i> Копировать</button>
+                    <button class="btn vless-copy-btn" id="copy-vless-btn"><i class="fas fa-copy"></i> Копировать</button>
                 </div>
             </div>
         </section>
 
-        <!-- Пробный -->
         <section>
             <h2 class="section-title"><i class="fas fa-gift"></i> Пробный Период</h2>
             <div class="card" id="trial-card-status" style="text-align: center;">Загрузка...</div>
         </section>
 
-        <!-- Рефералка -->
         <section>
             <h2 class="section-title"><i class="fas fa-users"></i> Реферальная Программа</h2>
             <div class="card">
@@ -259,7 +255,6 @@
             </div>
         </section>
 
-        <!-- Тарифы -->
         <section>
             <h2 class="section-title"><i class="fas fa-wallet"></i> Тарифы и Оплата (YooMoney)</h2>
             <div class="grid grid-2" id="tariff-grid"></div>
@@ -268,17 +263,14 @@
             </div>
         </section>
 
-        <!-- Подключение -->
         <section>
             <h2 class="section-title"><i class="fas fa-mobile-alt"></i> Подключение и Инструкции</h2>
 
-            <!-- Используем новый класс section-title-h3 (остался большим) -->
             <h3 class="section-title-h3">
                 <i class="fas fa-download"></i> Скачать приложение
             </h3>
             <div class="grid grid-4" id="download-grid"></div>
 
-            <!-- Используем новый класс section-title-h3 (остался большим) -->
             <h3 class="section-title-h3">
                 <i class="fas fa-book"></i> Инструкции по настройке
             </h3>
@@ -410,12 +402,16 @@
             document.getElementById('firebase-user-id').textContent = userId;
             document.getElementById('telegram-id-display').textContent = telegramId;
             
-            // Рендеринг UI
+            // Рендеринг UI и назначение обработчиков
             renderTariffs(); 
             renderDownloadButtons(); 
             renderInstructionButtons(); 
             generateReferralLink();
             window.startSubscriptionListener();
+
+            // ИСПРАВЛЕНИЕ: Назначение обработчиков кликов через JS
+            document.getElementById('theme-toggle-btn').addEventListener('click', toggleTheme);
+            document.getElementById('copy-vless-btn').addEventListener('click', copyVlessLink);
             
             // Уведомление о локальном API для DEV_USER
             if (telegramId === 'DEV_USER') {
@@ -467,15 +463,19 @@
                 if (hasUsedTrial) {
                     trialCard.innerHTML = `
                         <p style="color: #38a169; font-weight: bold; margin-bottom: 15px;"><i class="fas fa-check-circle"></i> Пробный период использован.</p>
-                        <!-- Кнопка сброса (только для тестирования!) -->
                         ${telegramId === 'DEV_USER' ? `
-                            <button class="btn" style="background: #9b2c32; color: white; border-color: #e53e3e; margin-top: 10px;" onclick="resetUserData()">
+                            <button class="btn" id="reset-data-btn" style="background: #9b2c32; color: white; border-color: #e53e3e; margin-top: 10px;">
                                 <i class="fas fa-undo"></i> Сбросить данные (DEV)
                             </button>
                         ` : ''}
                     `;
+                    if (telegramId === 'DEV_USER') {
+                        document.getElementById('reset-data-btn').addEventListener('click', resetUserData);
+                    }
                 } else {
-                    trialCard.innerHTML = `<button class="btn btn-primary" onclick="startTrial()"><i class="fas fa-gift"></i> Активировать ${TRIAL_DAYS} дня бесплатно</button>`;
+                    // ИСПРАВЛЕНИЕ: Добавлен id для кнопки и удален onclick
+                    trialCard.innerHTML = `<button class="btn btn-primary" id="start-trial-btn"><i class="fas fa-gift"></i> Активировать ${TRIAL_DAYS} дня бесплатно</button>`;
+                    document.getElementById('start-trial-btn')?.addEventListener('click', startTrial);
                 }
 
                 window.updateReferralUI(data.invited_count || 0);
@@ -524,7 +524,8 @@
         window.generateReferralLink = () => {
             const link = `https://t.me/${BOT_USERNAME}?start=ref_${telegramId}`;
             document.getElementById('referral-link-display').textContent = link;
-            document.getElementById('copy-referral-btn').onclick = () => copyText(link, 'Ссылка скопирована!');
+            // ИСПРАВЛЕНИЕ: Обработчик назначается через JS
+            document.getElementById('copy-referral-btn').addEventListener('click', () => copyText(link, 'Ссылка скопирована!'));
         };
 
         function copyText(text, msg) {
@@ -544,11 +545,12 @@
             copyText(text, 'Ключ скопирован!');
         };
 
+        // ИСПРАВЛЕНИЕ: Функция теперь назначает обработчики событий
         function renderTariffs() {
             const grid = document.getElementById('tariff-grid');
-            grid.innerHTML = TARIFFS.map(t => `
+            grid.innerHTML = TARIFFS.map((t, index) => `
                 <div class="tariff-card">
-                    <button class="btn" onclick="buySubscription(${t.months}, ${t.price})">
+                    <button class="btn tariff-btn" data-months="${t.months}" data-price="${t.price}">
                         <i class="fas fa-calendar"></i>
                         ${t.months} мес.
                         <span style="font-weight: bold; font-size: 1.1em;">${t.price.toFixed(2).replace('.', ',')} ₽</span>
@@ -556,32 +558,55 @@
                     </button>
                 </div>
             `).join('');
+
+            // Назначаем обработчики для всех кнопок тарифов
+            document.querySelectorAll('.tariff-btn').forEach(button => {
+                button.addEventListener('click', (e) => {
+                    const months = parseInt(e.currentTarget.getAttribute('data-months'));
+                    const price = parseFloat(e.currentTarget.getAttribute('data-price'));
+                    buySubscription(months, price);
+                });
+            });
         }
 
         function buySubscription(months, price) {
             if (telegramId === 'DEV_USER') return showToast('Запустите через Telegram');
             const comment = `Оплата_${months}мес_TGID_${telegramId}_Shinobu`;
             const url = `https://yoomoney.ru/quickpay/confirm.xml?receiver=${YOOMONEY_RECIPIENT_ID}&quickpay-form=shop&targets=Shinobu+Proxy+${months}мес&sum=${price.toFixed(2)}&comment=${encodeURIComponent(comment)}&paymentType=AC`;
-            tg?.openLink(url) || window.open(url);
+            openLink(url); // Используем универсальную функцию открытия
             showToast('Переход на YooMoney...');
         }
 
+        // ИСПРАВЛЕНИЕ: Функция теперь назначает обработчики событий
         function renderDownloadButtons() {
             const grid = document.getElementById('download-grid');
-            grid.innerHTML = Object.values(DOWNLOAD_LINKS).map(i => `
-                <button class="btn" onclick="openLink('${i.url}')">
+            grid.innerHTML = Object.values(DOWNLOAD_LINKS).map((i, index) => `
+                <button class="btn download-btn" data-url="${i.url}">
                     <i class="${i.icon}"></i> ${i.name}
                 </button>
             `).join('');
+
+            document.querySelectorAll('.download-btn').forEach(button => {
+                button.addEventListener('click', (e) => {
+                    openLink(e.currentTarget.getAttribute('data-url'));
+                });
+            });
         }
 
+        // ИСПРАВЛЕНИЕ: Функция теперь назначает обработчики событий
         function renderInstructionButtons() {
             const grid = document.getElementById('instructions-grid');
-            grid.innerHTML = Object.values(INSTRUCTION_LINKS).map(i => `
-                <button class="btn" onclick="openLink('${i.url}')">
+            grid.innerHTML = Object.values(INSTRUCTION_LINKS).map((i, index) => `
+                <button class="btn instruction-btn" data-url="${i.url}">
                     <i class="${i.icon}"></i> ${i.name}
                 </button>
             `).join('');
+
+            document.querySelectorAll('.instruction-btn').forEach(button => {
+                button.addEventListener('click', (e) => {
+                    openLink(e.currentTarget.getAttribute('data-url'));
+                });
+            });
         }
 
         window.openLink = (url) => tg?.openLink(url) || window.open(url, '_blank');
