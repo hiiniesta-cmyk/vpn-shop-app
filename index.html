@@ -23,6 +23,7 @@
 
         // Глобальные переменные, предоставленные Canvas
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        // Парсим конфигурацию, используя пустой объект как запасной вариант
         const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
         const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
 
@@ -33,6 +34,11 @@
         // Инициализация Firebase и аутентификация
         async function initializeFirebase() {
             try {
+                // ПРОВЕРКА: Если конфигурация не содержит projectId, выдаем ошибку
+                if (!firebaseConfig || !firebaseConfig.projectId) {
+                    throw new Error('Firebase configuration is incomplete or missing (projectId not found).');
+                }
+
                 const app = initializeApp(firebaseConfig);
                 db = getFirestore(app);
                 auth = getAuth(app);
@@ -61,9 +67,13 @@
 
             } catch (error) {
                 console.error("Ошибка инициализации Firebase:", error);
+                const errorMessage = error.message.includes('projectId') 
+                    ? 'Критическая ошибка: отсутствует конфигурация базы данных. Попробуйте перезапустить приложение.'
+                    : `Ошибка: Не удалось подключиться к базе данных. ${error.message}`;
+                    
                 // Показываем ошибку пользователю
                 document.getElementById('status-info').innerHTML = 
-                    `<span style="color: #ef4444;">❌ Ошибка: Не удалось подключиться к базе данных. ${error.message}</span>`;
+                    `<span style="color: #ef4444;">❌ ${errorMessage}</span>`;
             }
         }
 
