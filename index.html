@@ -649,11 +649,14 @@
         // Функция, которая будет вызвана после успешной аутентификации Firebase
         window.startSubscriptionListener = function() {
             const userId = window.firebaseUserId;
+            const trialCard = document.getElementById('trial-card-status'); // Получаем элемент здесь
             document.getElementById('firebase-user-id').textContent = userId;
             
+            // ИСПРАВЛЕНИЕ: Если Firebase не инициализирован (db отсутствует), показываем ошибку
             if (!window.db || !userId || !window.firestore) {
-                document.getElementById('status-info').innerHTML = 
-                    `<span style="color: #ef4444;">❌ Ошибка: Невозможно получить статус. (TG ID: ${telegramId})</span>`;
+                const errorMessage = `<span style="color: #ef4444;">❌ Ошибка: База данных недоступна.</span>`;
+                document.getElementById('status-info').innerHTML = errorMessage;
+                trialCard.innerHTML = `<div style="text-align: center; color: var(--text-dark);">${errorMessage}</div>`;
                 return;
             }
 
@@ -697,7 +700,6 @@
                 }
                 
                 // --- Статус Пробного Периода ---
-                const trialCard = document.getElementById('trial-card-status');
                 const trialUsed = docSnap.exists() && docSnap.data().trial_used;
 
                 if (trialUsed) {
@@ -726,6 +728,7 @@
                 console.error("Ошибка при получении статуса подписки:", error);
                 document.getElementById('status-info').innerHTML = 
                     `<span style="color: #ef4444;">❌ Ошибка: Не удалось получить статус. ${error.message}</span>`;
+                trialCard.innerHTML = `<div style="text-align: center;"><span style="color: #ef4444;">❌ Ошибка загрузки статуса: ${error.message}</span></div>`;
             });
         }
 
@@ -785,7 +788,7 @@
         // NEW: Логика Пробного Периода
         window.startTrial = async function() {
             if (!window.db || !telegramId || !window.firebaseUserId || !window.firestore) {
-                window.showModal('Ошибка', 'Сервис не инициализирован. Пожалуйста, подождите.', 'ОК');
+                window.showModal('Ошибка', 'Сервис не инициализирован или отсутствует Telegram ID. Пожалуйста, подождите или перезапустите приложение.', 'ОК');
                 return;
             }
 
