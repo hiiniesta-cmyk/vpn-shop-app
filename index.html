@@ -6,895 +6,711 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    <title>SecureVPN - Безопасный Proxy для России v2.3</title>
+    <title>Shinobu Proxy - Тарифы и Подключение</title>
     <script src="https://telegram.org/js/telegram-web-app.js?v=2.2"></script>
+    <!-- Firebase Imports for Firestore -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, onSnapshot, setDoc, serverTimestamp, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        
+        // ВАЖНО: Установка уровня логирования для отладки Firestore
+        setLogLevel('debug');
+
+        // Глобальные переменные, предоставленные Canvas
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+        let db = null;
+        let auth = null;
+        let userId = null;
+
+        // Инициализация Firebase и аутентификация
+        async function initializeFirebase() {
+            try {
+                const app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+                
+                if (initialAuthToken) {
+                    await signInWithCustomToken(auth, initialAuthToken);
+                } else {
+                    await signInAnonymously(auth);
+                }
+                
+                // Получаем ID пользователя после аутентификации
+                userId = auth.currentUser?.uid || crypto.randomUUID();
+                
+                console.log("Firebase initialized. User ID:", userId);
+                
+                // Передаем экземпляры в глобальный скоуп для доступа из <script>
+                window.db = db;
+                window.auth = auth;
+                window.firebaseUserId = userId; 
+
+                // Начинаем прослушивание статуса подписки
+                window.startSubscriptionListener();
+
+            } catch (error) {
+                console.error("Ошибка инициализации Firebase:", error);
+                // Показываем ошибку пользователю
+                document.getElementById('status-info').innerHTML = 
+                    `<span class="text-red-500">❌ Ошибка: Не удалось подключиться к базе данных. ${error.message}</span>`;
+            }
+        }
+
+        // Запускаем инициализацию
+        initializeFirebase();
+
+        // Функции для имитации создания/обновления подписки
+        window.mockUpdateSubscription = async function(telegramId, months) {
+            if (!db || !telegramId) return;
+
+            const subscriptionRef = doc(db, `artifacts/${appId}/users/${userId}/subscription/status_doc`);
+            
+            // Получаем текущее состояние
+            const docSnap = await getDoc(subscriptionRef);
+            let expiryDate = new Date();
+            if (docSnap.exists() && docSnap.data().status === 'active') {
+                // Если активна, продлеваем с текущей даты истечения
+                expiryDate = docSnap.data().expiry_date.toDate();
+            }
+            
+            // Увеличиваем дату истечения на N месяцев
+            expiryDate.setMonth(expiryDate.getMonth() + months);
+            
+            const mockVlessLink = `vless://uuid-for-tg-${telegramId}-m${months}@server.shinobu.net:443?security=tls&fp=chrome&sni=server.shinobu.net#Shinobu_Proxy_${months}m`;
+
+            const subscriptionData = {
+                telegram_id: telegramId,
+                status: 'active',
+                expiry_date: expiryDate,
+                vless_link: mockVlessLink,
+                last_updated: serverTimestamp()
+            };
+
+            await setDoc(subscriptionRef, subscriptionData, { merge: true });
+            console.log(`Mock subscription updated for ${telegramId} for ${months} months.`);
+            // При реальной интеграции это должен делать ваш бэкенд после подтверждения оплаты
+            
+            // Обновляем UI сразу (onSnapshot сделает это автоматически)
+        }
+
+    </script>
+    
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
+        /* Общие стили */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        :root {
+            --bg-dark: #0d0d0d;
+            --bg-light: #f5f7fa;
+            --text-dark: #e0e0e0;
+            --text-light: #2d3748;
+            --accent-color: #00d4ff;
+            --accent-dark: #00a8cc;
+            --secondary-color: #7b2cbf;
+            --card-dark: rgba(255, 255, 255, 0.03);
+            --card-light: rgba(255, 255, 255, 0.9);
+            --border-dark: rgba(0, 212, 255, 0.3);
+            --border-light: rgba(0, 123, 255, 0.3);
         }
 
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: #0d0d0d;
-            color: #e0e0e0;
-            overflow-x: hidden;
+            background: var(--bg-dark);
+            color: var(--text-dark);
             min-height: 100vh;
-            position: relative;
             transition: background 0.5s ease, color 0.5s ease;
         }
 
         body.light-theme {
-            background: #f5f7fa;
-            color: #2d3748;
-        }
-
-        /* Theme Toggle Button */
-        .theme-toggle {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            width: 60px;
-            height: 60px;
-            background: rgba(0, 212, 255, 0.15);
-            border: 2px solid rgba(0, 212, 255, 0.5);
-            border-radius: 50%;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.5em;
-            backdrop-filter: blur(10px);
-            transition: all 0.3s ease;
-            z-index: 1000;
-            animation: fadeIn 1s ease-out;
-        }
-
-        .theme-toggle:hover {
-            background: rgba(0, 212, 255, 0.25);
-            transform: scale(1.1) rotate(15deg);
-            box-shadow: 0 0 20px rgba(0, 212, 255, 0.5);
-        }
-
-        body.light-theme .theme-toggle {
-            background: rgba(0, 123, 255, 0.1);
-            border-color: rgba(0, 123, 255, 0.5);
-        }
-
-        body.light-theme .theme-toggle:hover {
-            background: rgba(0, 123, 255, 0.2);
-            box-shadow: 0 0 20px rgba(0, 123, 255, 0.4);
-        }
-
-        /* Animated background grid */
-        .grid-background {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-image: 
-                linear-gradient(rgba(0, 212, 255, 0.03) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(0, 212, 255, 0.03) 1px, transparent 1px);
-            background-size: 50px 50px;
-            animation: gridMove 20s linear infinite;
-            z-index: 0;
-            transition: opacity 0.5s ease;
-        }
-
-        body.light-theme .grid-background {
-            background-image: 
-                linear-gradient(rgba(0, 123, 255, 0.08) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(0, 123, 255, 0.08) 1px, transparent 1px);
-        }
-
-        @keyframes gridMove {
-            0% {
-                transform: translate(0, 0);
-            }
-            100% {
-                transform: translate(50px, 50px);
-            }
-        }
-
-        /* Animated gradient orbs */
-        .orb {
-            position: fixed;
-            border-radius: 50%;
-            filter: blur(80px);
-            opacity: 0.4;
-            z-index: 0;
-            pointer-events: none;
-        }
-
-        .orb1 {
-            width: 400px;
-            height: 400px;
-            background: radial-gradient(circle, #00d4ff, transparent);
-            top: -200px;
-            left: -200px;
-            animation: orbFloat1 15s ease-in-out infinite;
-        }
-
-        body.light-theme .orb1 {
-            background: radial-gradient(circle, rgba(0, 123, 255, 0.3), transparent);
-        }
-
-        .orb2 {
-            width: 500px;
-            height: 500px;
-            background: radial-gradient(circle, #7b2cbf, transparent);
-            bottom: -250px;
-            right: -250px;
-            animation: orbFloat2 20s ease-in-out infinite;
-        }
-
-        body.light-theme .orb2 {
-            background: radial-gradient(circle, rgba(99, 102, 241, 0.25), transparent);
-        }
-
-        .orb3 {
-            width: 300px;
-            height: 300px;
-            background: radial-gradient(circle, #ff006e, transparent);
-            top: 50%;
-            left: 50%;
-            animation: orbFloat3 18s ease-in-out infinite;
-        }
-
-        body.light-theme .orb3 {
-            background: radial-gradient(circle, rgba(236, 72, 153, 0.2), transparent);
-        }
-
-        @keyframes orbFloat1 {
-            0%, 100% { transform: translate(0, 0) scale(1); }
-            33% { transform: translate(100px, 150px) scale(1.2); }
-            66% { transform: translate(-50px, 100px) scale(0.8); }
-        }
-
-        @keyframes orbFloat2 {
-            0%, 100% { transform: translate(0, 0) scale(1); }
-            33% { transform: translate(-100px, -100px) scale(1.1); }
-            66% { transform: translate(50px, -150px) scale(0.9); }
-        }
-
-        @keyframes orbFloat3 {
-            0%, 100% { transform: translate(-50%, -50%) scale(1); }
-            50% { transform: translate(calc(-50% + 200px), calc(-50% - 100px)) scale(1.3); }
+            background: var(--bg-light);
+            color: var(--text-light);
         }
 
         .container {
-            max-width: 1200px;
+            max-width: 800px;
             margin: 0 auto;
             padding: 20px;
             position: relative;
             z-index: 1;
         }
 
-        /* Header */
+        /* Заголовок */
         header {
             text-align: center;
-            padding: 60px 20px 40px;
-            animation: fadeInDown 0.8s ease-out;
+            padding: 30px 0 20px;
         }
 
         .logo {
-            font-size: 2.8em;
+            font-size: 2.2em;
             font-weight: bold;
-            background: linear-gradient(45deg, #00d4ff, #7b2cbf, #00d4ff);
-            background-size: 200% 200%;
+            background: linear-gradient(45deg, var(--accent-color), var(--secondary-color));
             -webkit-background-clip: text;
             background-clip: text;
             -webkit-text-fill-color: transparent;
-            margin-bottom: 10px;
-            animation: gradientShift 3s ease infinite, glowPulse 2s ease-in-out infinite;
-            filter: drop-shadow(0 0 20px rgba(0, 212, 255, 0.5));
-        }
-
-        @keyframes gradientShift {
-            0%, 100% { background-position: 0% 50%; }
-            50% { background-position: 100% 50%; }
-        }
-
-        @keyframes glowPulse {
-            0%, 100% { filter: drop-shadow(0 0 20px rgba(0, 212, 255, 0.5)); }
-            50% { filter: drop-shadow(0 0 40px rgba(123, 44, 191, 0.8)); }
+            filter: drop-shadow(0 0 10px rgba(0, 212, 255, 0.3));
         }
 
         .tagline {
-            font-size: 1.2em;
+            font-size: 1em;
             color: #b0b0b0;
-            margin-bottom: 30px;
-            animation: fadeIn 1s ease-out 0.3s backwards;
+            margin-top: 5px;
         }
 
         body.light-theme .tagline {
-            color: #2d3748;
+            color: var(--text-light);
         }
 
-        /* Hero Section */
-        .hero {
+        /* Общая секция */
+        .section-title {
+            font-size: 1.8em;
+            color: var(--accent-color);
+            margin: 30px 0 20px;
+            border-bottom: 2px solid var(--border-dark);
+            padding-bottom: 10px;
             text-align: center;
-            padding: 40px 20px;
-            animation: fadeIn 1s ease-out 0.5s backwards;
         }
 
-        .hero h1 {
-            font-size: 3em;
+        body.light-theme .section-title {
+            color: #007bff;
+            border-bottom-color: var(--border-light);
+        }
+
+        /* Карточка */
+        .card {
+            background: var(--card-dark);
+            border: 1px solid var(--border-dark);
+            padding: 20px;
             margin-bottom: 20px;
-            background: linear-gradient(45deg, #ffffff, #00d4ff, #7b2cbf, #ffffff);
-            background-size: 300% 300%;
-            -webkit-background-clip: text;
-            background-clip: text;
-            -webkit-text-fill-color: transparent;
-            animation: gradientFlow 5s ease infinite, titleFloat 3s ease-in-out infinite;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+            backdrop-filter: blur(5px);
+            transition: all 0.3s ease;
         }
 
-        @keyframes gradientFlow {
-            0%, 100% { background-position: 0% 50%; }
-            50% { background-position: 100% 50%; }
+        body.light-theme .card {
+            background: var(--card-light);
+            border-color: var(--border-light);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
         }
 
-        @keyframes titleFloat {
-            0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-10px); }
+        /* Кнопки и сетки */
+        .grid {
+            display: grid;
+            gap: 15px;
         }
 
-        .hero p {
-            font-size: 1.1em;
-            line-height: 1.8;
-            color: #c0c0c0;
-            max-width: 700px;
-            margin: 0 auto 40px;
-            animation: fadeIn 1.2s ease-out 0.7s backwards;
-        }
+        .grid-2 { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+        .grid-4 { grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); }
 
-        body.light-theme .hero p {
-            color: #2d3748;
-        }
-
-        /* Transparent Buttons */
         .btn {
-            display: inline-block;
-            padding: 18px 45px;
-            margin: 10px;
-            background: rgba(0, 212, 255, 0.08);
-            border: 2px solid rgba(0, 212, 255, 0.5);
-            color: #00d4ff;
+            padding: 12px 20px;
+            background: rgba(0, 212, 255, 0.1);
+            border: 2px solid var(--accent-color);
+            color: var(--accent-color);
             text-decoration: none;
-            font-size: 1.1em;
+            font-size: 1em;
             font-weight: 600;
-            border-radius: 50px;
-            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            position: relative;
-            overflow: hidden;
-            backdrop-filter: blur(10px);
-            animation: fadeInUp 1s ease-out 0.9s backwards;
+            border-radius: 10px;
+            transition: all 0.3s ease;
             cursor: pointer;
+            text-align: center;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            line-height: 1.2;
         }
 
         body.light-theme .btn {
-            background: rgba(0, 123, 255, 0.15);
-            border-color: rgba(0, 123, 255, 0.6);
-            color: #0056b3;
+            background: rgba(0, 123, 255, 0.1);
+            border-color: #007bff;
+            color: #007bff;
+        }
+
+        .btn:hover {
+            background: rgba(0, 212, 255, 0.25);
+            box-shadow: 0 0 15px rgba(0, 212, 255, 0.5);
+            transform: translateY(-2px);
         }
 
         body.light-theme .btn:hover {
             background: rgba(0, 123, 255, 0.25);
-            border-color: #0056b3;
-            color: #003d82;
+            box-shadow: 0 0 15px rgba(0, 123, 255, 0.4);
         }
 
-        .btn:before {
-            content: '';
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            width: 0;
-            height: 0;
-            border-radius: 50%;
-            background: rgba(0, 212, 255, 0.2);
-            transform: translate(-50%, -50%);
-            transition: width 0.6s, height 0.6s;
-        }
-
-        .btn:after {
-            content: '';
-            position: absolute;
-            top: -50%;
-            left: -50%;
-            width: 200%;
-            height: 200%;
-            background: linear-gradient(45deg, transparent, rgba(255, 255, 255, 0.1), transparent);
-            transform: rotate(45deg);
-            animation: shimmer 3s infinite;
-        }
-
-        @keyframes shimmer {
-            0% { transform: translateX(-100%) rotate(45deg); }
-            100% { transform: translateX(100%) rotate(45deg); }
-        }
-
-        .btn:hover:before {
-            width: 400px;
-            height: 400px;
-        }
-
-        .btn:hover {
-            background: rgba(0, 212, 255, 0.15);
-            border-color: #00d4ff;
-            box-shadow: 0 0 30px rgba(0, 212, 255, 0.6), inset 0 0 20px rgba(0, 212, 255, 0.2);
-            transform: translateY(-5px) scale(1.05);
-        }
-
-        .btn span {
-            position: relative;
-            z-index: 1;
-        }
-
-        .btn-primary {
-            background: rgba(0, 212, 255, 0.2);
-            border-color: #00d4ff;
-            box-shadow: 0 0 15px rgba(0, 212, 255, 0.4);
-            animation: fadeInUp 1s ease-out 0.9s backwards;
-        }
-
-        body.light-theme .btn-primary {
-            background: #007bff;
-            border-color: #007bff;
-            color: #ffffff;
-            box-shadow: 0 4px 15px rgba(0, 123, 255, 0.3);
-        }
-
-        .btn-primary:hover {
-            background: rgba(0, 212, 255, 0.3);
-            box-shadow: 0 0 30px rgba(0, 212, 255, 0.8);
-        }
-
-        body.light-theme .btn-primary:hover {
-            background: #0056b3;
-            border-color: #0056b3;
-            color: #ffffff;
-            box-shadow: 0 6px 20px rgba(0, 123, 255, 0.4);
-        }
-
-        .btn-large {
-            padding: 22px 60px;
-            font-size: 1.3em;
-        }
-
-        /* Features Grid */
-        .features {
-            padding: 60px 20px;
-        }
-
-        .features h2 {
-            animation: fadeInDown 0.8s ease-out;
-        }
-
-        body.light-theme .features h2 {
-            color: #007bff;
-        }
-
-        .features-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-            gap: 25px;
-            margin-top: 30px;
-        }
-
-        .feature-box {
-            background: rgba(255, 255, 255, 0.03);
-            border: 1px solid rgba(0, 212, 255, 0.3);
-            padding: 30px;
-            border-radius: 15px;
-            text-align: center;
-            transition: all 0.3s ease;
-            backdrop-filter: blur(10px);
-            animation: fadeInUp 0.8s ease-out;
-        }
-
-        body.light-theme .feature-box {
-            background: rgba(255, 255, 255, 0.9);
-            border-color: rgba(0, 123, 255, 0.3);
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
-        }
-
-        .feature-box:hover {
-            transform: translateY(-10px);
-            border-color: #00d4ff;
-            box-shadow: 0 10px 30px rgba(0, 212, 255, 0.3);
-        }
-
-        body.light-theme .feature-box:hover {
-            border-color: #007bff;
-            box-shadow: 0 10px 30px rgba(0, 123, 255, 0.2);
-        }
-
-        .feature-icon-large {
-            font-size: 3.5em;
-            margin-bottom: 15px;
-            filter: drop-shadow(0 0 10px rgba(0, 212, 255, 0.5));
-        }
-
-        .feature-box h3 {
-            color: #00d4ff;
-            margin-bottom: 10px;
-            font-size: 1.3em;
-        }
-
-        body.light-theme .feature-box h3 {
-            color: #007bff;
-        }
-
-        .feature-box p {
-            color: #b0b0b0;
-            font-size: 0.95em;
-            line-height: 1.5;
-        }
-
-        body.light-theme .feature-box p {
-            color: #4a5568;
-        }
-
-        /* Stats Section */
-        .stats-section {
-            padding: 60px 20px;
-            text-align: center;
-        }
-
-        .stats-section h2 {
-            animation: fadeInDown 0.8s ease-out;
-        }
-
-        body.light-theme .stats-section h2 {
-            color: #007bff;
-        }
-
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-            gap: 30px;
-            margin-top: 30px;
-            max-width: 800px;
-            margin-left: auto;
-            margin-right: auto;
-        }
-
-        .stat-card {
-            background: rgba(0, 212, 255, 0.1);
-            border: 2px solid rgba(0, 212, 255, 0.3);
-            padding: 30px 20px;
-            border-radius: 15px;
-            transition: all 0.3s ease;
-            backdrop-filter: blur(10px);
-            animation: fadeInUp 0.8s ease-out;
-        }
-
-        body.light-theme .stat-card {
-            background: rgba(0, 123, 255, 0.08);
-            border-color: rgba(0, 123, 255, 0.3);
-        }
-
-        .stat-card:hover {
-            transform: scale(1.1);
-            border-color: #00d4ff;
-            box-shadow: 0 0 30px rgba(0, 212, 255, 0.5);
-        }
-
-        body.light-theme .stat-card:hover {
-            border-color: #007bff;
-            box-shadow: 0 0 30px rgba(0, 123, 255, 0.3);
-        }
-
-        .stat-number {
-            font-size: 2.5em;
+        .btn-price {
             font-weight: bold;
-            color: #00d4ff;
-            margin-bottom: 5px;
-        }
-
-        body.light-theme .stat-number {
-            color: #007bff;
-        }
-
-        .stat-label {
-            font-size: 1em;
-            color: #b0b0b0;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
-
-        body.light-theme .stat-label {
-            color: #4a5568;
-        }
-
-        /* Download CTA */
-        .download-cta {
-            text-align: center;
-            padding: 80px 20px;
-            background: rgba(0, 212, 255, 0.08);
-            border-radius: 20px;
-            margin: 40px 20px;
-            backdrop-filter: blur(10px);
-            animation: fadeInUp 1s ease-out;
-        }
-
-        body.light-theme .download-cta {
-            background: rgba(0, 123, 255, 0.08);
-        }
-
-        .download-cta h2 {
-            font-size: 2.5em;
-            color: #ffffff;
-            margin-bottom: 15px;
-        }
-
-        body.light-theme .download-cta h2 {
-            color: #1a202c;
-        }
-
-        .download-cta p {
-            font-size: 1.2em;
-            color: #c0c0c0;
-            margin-bottom: 30px;
-        }
-
-        body.light-theme .download-cta p {
-            color: #4a5568;
-        }
-
-        /* Animations */
-        @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
-        }
-
-        @keyframes fadeInDown {
-            from {
-                opacity: 0;
-                transform: translateY(-30px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        @keyframes fadeInUp {
-            from {
-                opacity: 0;
-                transform: translateY(30px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        /* Success popup */
-        .popup-overlay {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.7);
-            z-index: 9999;
-            animation: fadeIn 0.3s ease-out;
-        }
-
-        .popup {
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: linear-gradient(135deg, #1a1a2e, #16213e);
-            padding: 40px;
-            border-radius: 20px;
-            border: 2px solid rgba(0, 212, 255, 0.5);
-            box-shadow: 0 20px 60px rgba(0, 212, 255, 0.3);
-            text-align: center;
-            max-width: 400px;
-            width: 90%;
-            animation: popupAppear 0.4s ease-out;
-        }
-
-        body.light-theme .popup {
-            background: linear-gradient(135deg, #ffffff, #f0f4f8);
-            border-color: rgba(0, 123, 255, 0.5);
-            box-shadow: 0 20px 60px rgba(0, 123, 255, 0.3);
-        }
-
-        @keyframes popupAppear {
-            from {
-                opacity: 0;
-                transform: translate(-50%, -50%) scale(0.8);
-            }
-            to {
-                opacity: 1;
-                transform: translate(-50%, -50%) scale(1);
-            }
-        }
-
-        .popup-icon {
-            font-size: 4em;
-            margin-bottom: 20px;
-            animation: bounce 1s ease-in-out;
-        }
-
-        @keyframes bounce {
-            0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-20px); }
-        }
-
-        .popup h2 {
-            color: #00d4ff;
-            margin-bottom: 15px;
-            font-size: 1.8em;
-        }
-
-        body.light-theme .popup h2 {
-            color: #007bff;
-        }
-
-        .popup p {
-            color: #c0c0c0;
-            margin-bottom: 30px;
-            line-height: 1.6;
-        }
-
-        body.light-theme .popup p {
-            color: #2d3748;
-        }
-
-        .popup-btn {
-            padding: 15px 40px;
-            background: #00d4ff;
-            border: none;
-            border-radius: 50px;
-            color: #000;
+            display: block;
+            margin-top: 5px;
             font-size: 1.1em;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s ease;
         }
 
-        body.light-theme .popup-btn {
-            background: #007bff;
-            color: #ffffff;
+        .tariff-card:nth-child(4) .btn { /* Best value (6 months) */
+            background: linear-gradient(90deg, #7b2cbf, var(--accent-color));
+            color: #fff;
+            border-color: var(--secondary-color);
+            box-shadow: 0 0 20px rgba(123, 44, 191, 0.5);
         }
 
-        .popup-btn:hover {
-            background: #00a8cc;
-            transform: scale(1.05);
-            box-shadow: 0 5px 20px rgba(0, 212, 255, 0.5);
+        .tariff-card:nth-child(4) .btn:hover {
+             background: linear-gradient(90deg, #6a24aa, var(--accent-dark));
+        }
+        
+        /* Статус подписки */
+        .status-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
         }
 
-        body.light-theme .popup-btn:hover {
-            background: #0056b3;
-            box-shadow: 0 5px 20px rgba(0, 123, 255, 0.4);
+        .status-indicator {
+            padding: 5px 15px;
+            border-radius: 8px;
+            font-weight: bold;
+            font-size: 0.9em;
+            transition: background 0.5s;
         }
 
-        /* Responsive */
-        @media (max-width: 768px) {
-            .hero h1 {
-                font-size: 2em;
-            }
-            
-            .logo {
-                font-size: 2em;
-            }
+        .status-inactive { background-color: #e53e3e; color: white; }
+        .status-active { background-color: #38a169; color: white; }
+        .status-loading { background-color: #3182ce; color: white; }
 
-            .btn {
-                padding: 15px 35px;
-                font-size: 1em;
-            }
+        .vless-link-box {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 10px;
+            border-radius: 8px;
+            word-break: break-all;
+            font-family: monospace;
+            font-size: 0.9em;
+            margin-top: 15px;
+            border: 1px dashed var(--accent-color);
+        }
+        
+        body.light-theme .vless-link-box {
+            background: #e2e8f0;
+            border-color: #3182ce;
+        }
+
+        .vless-container {
+            display: flex;
+            gap: 10px;
+            align-items: stretch;
+            margin-top: 15px;
+        }
+
+        .vless-copy-btn {
+            flex-shrink: 0;
+            padding: 10px 15px;
+            font-size: 0.9em;
+            background: #2b6cb0;
+            border-color: #2b6cb0;
+            color: white;
+        }
+        
+        .vless-copy-btn:hover {
+            background: #1e4e7c;
+        }
+
+        /* Анимация и орбы (сохраняем для стиля) */
+        .grid-background {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background-image: linear-gradient(rgba(0, 212, 255, 0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(0, 212, 255, 0.03) 1px, transparent 1px);
+            background-size: 50px 50px;
+            z-index: 0;
+            pointer-events: none;
+        }
+        .orb { position: fixed; border-radius: 50%; filter: blur(80px); opacity: 0.4; z-index: 0; pointer-events: none; }
+        .orb1 { width: 400px; height: 400px; background: radial-gradient(circle, #00d4ff, transparent); top: -200px; left: -200px; }
+        .orb2 { width: 500px; height: 500px; background: radial-gradient(circle, #7b2cbf, transparent); bottom: -250px; right: -250px; }
+        body.light-theme .orb1 { background: radial-gradient(circle, rgba(0, 123, 255, 0.3), transparent); }
+        body.light-theme .orb2 { background: radial-gradient(circle, rgba(99, 102, 241, 0.25), transparent); }
+        
+        /* Медиа-запросы */
+        @media (max-width: 600px) {
+            .grid-4 { grid-template-columns: 1fr 1fr; }
+            .grid-2 { grid-template-columns: 1fr; }
+            .vless-container { flex-direction: column; }
+            .vless-copy-btn { width: 100%; }
         }
     </style>
 </head>
 <body>
-    <div style="position: fixed; bottom: 5px; right: 5px; background: rgba(0,0,0,0.5); color: white; padding: 3px 8px; font-size: 10px; border-radius: 3px; z-index: 10000;">
-        v2.3
-    </div>
-    
-    <button class="theme-toggle" onclick="toggleTheme()" aria-label="Переключить тему">
-        <span class="theme-icon">🌙</span>
-    </button>
-
-    <div class="popup-overlay" id="popupOverlay">
-        <div class="popup">
-            <div class="popup-icon">📱</div>
-            <h2>Скачать Proxy</h2>
-            <p>Закройте это окно и нажмите кнопку "Скачать Proxy" в чате с ботом</p>
-            <button class="popup-btn" onclick="closePopup()">Вернуться в чат</button>
-        </div>
-    </div>
-
+    <!-- Animated background -->
     <div class="grid-background"></div>
-
     <div class="orb orb1"></div>
     <div class="orb orb2"></div>
-    <div class="orb orb3"></div>
 
     <div class="container">
+        <!-- Header -->
         <header>
             <div class="logo">🔒 Shinobu Proxy</div>
             <div class="tagline">Ваша приватность — наш приоритет</div>
+            <div style="font-size: 0.8em; margin-top: 10px; opacity: 0.7;">
+                Ваш Telegram ID для оплаты: <span id="telegram-id-display">Загрузка...</span>
+            </div>
         </header>
 
-        <section class="hero">
-            <h1>Свобода и безопасность в интернете</h1>
-            <p>
-                Shinobu Proxy — это надёжный и быстрый сервис, специально оптимизированный для работы в России. 
-                Почему вы должны ограничивать себя в просмотре Youtube и Instagram, ограничивать себя в общении в Discord с друзьями?. 
-                Вы хотите жить в ногу со времением и пользоваться всеми ИИ и нейросетями!?.
-                Тогда позвольте нам представить вам свободу, свободу выбора!.
-                Выбирайте Shinobu!.
+        <!-- 1. Статус Подписки -->
+        <section class="subscription-status-section">
+            <h2 class="section-title">✨ Статус Подписки</h2>
+            <div class="card">
+                <div class="status-header">
+                    <h3>Текущий статус:</h3>
+                    <div id="status-indicator" class="status-indicator status-loading">Загрузка</div>
+                </div>
+                <div id="status-info" style="margin-top: 10px; line-height: 1.6;">
+                    <p>Дата истечения: <span id="expiry-date">...</span></p>
+                    <p>Пользователь (Firebase ID): <span id="firebase-user-id">...</span></p>
+                </div>
+
+                <!-- Блок с VLESS-ссылкой -->
+                <div id="vless-container" class="vless-container" style="display: none;">
+                    <div class="vless-link-box" id="vless-link-display" style="flex-grow: 1;">
+                        VLESS-ссылка будет здесь.
+                    </div>
+                    <button class="btn vless-copy-btn" onclick="copyVlessLink()">
+                        📋 Копировать
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- 2. Тарифы и Оплата -->
+        <section class="tariffs-section">
+            <h2 class="section-title">💳 Тарифы и Оплата (YooMoney)</h2>
+            <div class="grid grid-2" id="tariff-grid">
+                <!-- Тарифы будут добавлены JS -->
+            </div>
+            <p style="text-align: center; font-size: 0.9em; margin-top: 15px; opacity: 0.8;">
+                ⚠️ Оплата через YooMoney. Для активации подписки необходимо дождаться проверки платежа ботом.
             </p>
-            <div>
-                <button class="btn btn-primary" onclick="downloadVPN()"><span>📱 Скачать для Android</span></button>
+        </section>
+
+        <!-- 3. Подключение и Инструкции -->
+        <section class="connection-section">
+            <h2 class="section-title">📱 Подключение и Инструкции</h2>
+
+            <!-- Скачивание приложений -->
+            <h3 style="font-size: 1.3em; margin-bottom: 10px;">📥 Скачать приложение</h3>
+            <div class="grid grid-4" id="download-grid">
+                <!-- Кнопки скачивания будут добавлены JS -->
+            </div>
+
+            <!-- Инструкции -->
+            <h3 style="font-size: 1.3em; margin-top: 20px; margin-bottom: 10px;">📖 Инструкции по настройке</h3>
+            <div class="grid grid-4" id="instructions-grid">
+                <!-- Кнопки инструкций будут добавлены JS -->
             </div>
         </section>
 
-        <section class="features">
-            <h2 style="text-align: center; font-size: 2em; margin-bottom: 30px; color: #00d4ff;">🌟 Преимущества Shinobu Proxy</h2>
-            <div class="features-grid">
-                <div class="feature-box">
-                    <div class="feature-icon-large">⚡</div>
-                    <h3>Максимальная скорость</h3>
-                    <p>Высокоскоростные серверы без ограничений скорости для комфортного просмотра и загрузки</p>
-                </div>
-                <div class="feature-box">
-                    <div class="feature-icon-large">🛡️</div>
-                    <h3>Защита данных</h3>
-                    <p>AES-256 шифрование для защиты всех ваших данных</p>
-                </div>
-                <div class="feature-box">
-                    <div class="feature-icon-large">🌍</div>
-                    <h3>1 страна</h3>
-                    <p>Более 100 серверов по всему миру для обхода любых ограничений</p>
-                </div>
-                <div class="feature-box">
-                    <div class="feature-icon-large">🇷🇺</div>
-                    <h3>Работает в России</h3>
-                    <p>Специально оптимизирован для стабильной работы в РФ</p>
-                </div>
-            </div>
-        </section>
-
-        <section class="stats-section">
-            <h2 style="text-align: center; font-size: 2em; margin-bottom: 30px; color: #00d4ff;">📊 Статистика</h2>
-            <div class="stats-grid">
-                <div class="stat-card">
-                    <div class="stat-number">1</div>
-                    <div class="stat-label">Страна</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-number">100</div>
-                    <div class="stat-label">Серверов</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-number">99.9%</div>
-                    <div class="stat-label">Uptime</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-number">24/7</div>
-                    <div class="stat-label">Поддержка</div>
-                </div>
-            </div>
-        </section>
-
-        <section class="download-cta">
-            <h2>🚀 Начните прямо сейчас!</h2>
-            <p>Скачайте Shinobu Proxy и получите 1 день бесплатного использования</p>
-            <button class="btn btn-primary btn-large" onclick="downloadVPN()"><span>📥 Скачать бесплатно</span></button>
-            <p style="margin-top: 15px; font-size: 0.9em; opacity: 0.7;">Без регистрации карты • Без обязательств</p>
-        </section>
     </div>
 
     <script>
-        // Глобальные переменные
+        // Глобальные переменные для работы приложения
         let tg = null;
         let isInTelegram = false;
-        
-        // Ждем полной загрузки страницы
+        let telegramId = null; // ID пользователя Telegram
+
+        // КОНФИГУРАЦИЯ СЕРВИСА
+        const YOOMONEY_RECIPIENT_ID = '4100118671234567'; // !!! ЗАМЕНИТЕ НА СВОЙ ID КОШЕЛЬКА YOOMONEY !!!
+        const YOOMONEY_BASE_URL = `https://yoomoney.ru/to/${YOOMONEY_RECIPIENT_ID}`;
+        const APP_NAME = 'Shinobu Proxy';
+
+        const DOWNLOAD_LINKS = {
+            android: { name: 'Android', icon: '🤖', url: 'https://github.com/2dust/v2rayNG/releases/download/1.10.23/v2rayNG_1.10.23_universal.apk' },
+            ios: { name: 'iOS', icon: '🍎', url: 'https://apps.apple.com/us/app/v2raytun/id6476628951' },
+            android_tv: { name: 'Android TV', icon: '📺', url: 'https://github.com/2dust/v2rayNG/releases/download/1.10.23/v2rayNG_1.10.23_universal.apk' },
+            windows: { name: 'Windows', icon: '🪟', url: 'https://github.com/hiddify/hiddify-app/releases/download/v2.0.5/Hiddify-Windows-Portable-x64.zip' }
+        };
+
+        const INSTRUCTION_LINKS = {
+            android: { name: 'Android', icon: '📖', url: 'https://telegra.ph/Kak-podklyuchitsya-k-Proxy-10-13' },
+            ios: { name: 'iOS', icon: '📖', url: 'https://telegra.ph/Kak-podklyuchitsya-k-Proxy-10-13-5' },
+            android_tv: { name: 'Android TV', icon: '📖', url: 'https://telegra.ph/Kak-podklyuchitsya-k-Proxy-10-13-4' },
+            windows: { name: 'Windows', icon: '📖', url: 'https://telegra.ph/Kak-podklyuchitsya-k-Proxy-10-13-3' }
+        };
+
+        const TARIFFS = [
+            { months: 1, price: 150 },
+            { months: 2, price: 280, description: 'Выгодно! Скидка 20₽' },
+            { months: 3, price: 400, description: 'Лучшая цена! Скидка 50₽' },
+            { months: 6, price: 700, description: 'Супер-экономия! Скидка 200₽' }
+        ];
+
+        // --- Инициализация и UI функции ---
+
         window.addEventListener('load', function() {
-            // Проверяем наличие Telegram WebApp
-            if (!window.Telegram || !window.Telegram.WebApp) {
-                console.log('Not in Telegram environment');
-                return;
-            }
-            
             // Инициализация Telegram Web App
-            tg = window.Telegram.WebApp;
-            tg.expand();
+            if (window.Telegram && window.Telegram.WebApp) {
+                tg = window.Telegram.WebApp;
+                tg.ready();
+                tg.expand();
+                tg.setHeaderColor(tg.themeParams.bg_color || '#0d0d0d');
+                tg.setBackgroundColor(tg.themeParams.bg_color || '#0d0d0d');
 
-            // Определяем, запущено ли приложение в Telegram
-            isInTelegram = tg.initData !== '';
-            
-            console.log('Telegram WebApp initialized');
-            console.log('Platform:', tg.platform);
-            console.log('Is in Telegram:', isInTelegram);
-        });
-
-        // Theme Toggle Function
-        function toggleTheme() {
-            const body = document.body;
-            const themeIcon = document.querySelector('.theme-icon');
-            
-            body.classList.toggle('light-theme');
-            
-            if (body.classList.contains('light-theme')) {
-                themeIcon.textContent = '☀️';
-                try {
-                    localStorage.setItem('theme', 'light');
-                } catch (e) {
-                    console.log('localStorage not available');
+                isInTelegram = tg.initData !== '';
+                
+                if (tg.initDataUnsafe.user) {
+                    telegramId = tg.initDataUnsafe.user.id;
+                    document.getElementById('telegram-id-display').textContent = telegramId;
+                } else {
+                    document.getElementById('telegram-id-display').textContent = 'ID не определен (не в Telegram WebApp)';
+                    telegramId = 'NO_TG_ID';
                 }
             } else {
-                themeIcon.textContent = '🌙';
-                try {
-                    localStorage.setItem('theme', 'dark');
-                } catch (e) {
-                    console.log('localStorage not available');
-                }
+                console.warn('Telegram WebApp API не найдено.');
+                telegramId = 'NO_TG_ID_DEV';
+                document.getElementById('telegram-id-display').textContent = `${telegramId} (DEV)`;
             }
-        }
 
-        // Load saved theme
-        window.addEventListener('DOMContentLoaded', () => {
-            try {
-                const savedTheme = localStorage.getItem('theme');
-                const themeIcon = document.querySelector('.theme-icon');
-                
-                if (savedTheme === 'light') {
-                    document.body.classList.add('light-theme');
-                    themeIcon.textContent = '☀️';
-                }
-            } catch (e) {
-                console.log('localStorage not available - using default theme');
-            }
-        });
-
-        // Функция скачивания VPN (для кнопок внутри страницы)
-        function downloadVPN() {
-            // Прямая ссылка на скачивание APK-файла, согласно запросу пользователя
-            window.location.href = 'https://github.com/2dust/v2rayNG/releases/download/1.10.23/v2rayNG_1.10.23_universal.apk';
-            console.log('Redirecting to direct APK download link.');
-        }
-
-        // Показать popup
-        function showPopup() {
-            const overlay = document.getElementById('popupOverlay');
-            overlay.style.display = 'block';
-        }
-
-        // Закрыть popup и вернуться в чат
-        function closePopup() {
-            const overlay = document.getElementById('popupOverlay');
-            overlay.style.display = 'none';
+            // Рендеринг кнопок
+            renderTariffs();
+            renderDownloadButtons();
+            renderInstructionButtons();
             
-            if (isInTelegram) {
-                tg.close();
+            // Если Firebase не инициализировался (он инициализируется через type="module"),
+            // будет использовано состояние "Загрузка" до его готовности.
+            document.getElementById('firebase-user-id').textContent = window.firebaseUserId || 'Ожидание аутентификации...';
+        });
+        
+        // Функция, которая будет вызвана после успешной аутентификации Firebase
+        window.startSubscriptionListener = function() {
+            const userId = window.firebaseUserId;
+            document.getElementById('firebase-user-id').textContent = userId;
+            
+            if (!window.db || !userId || telegramId === 'NO_TG_ID') {
+                document.getElementById('status-info').innerHTML = 
+                    `<span class="text-red-500">❌ Ошибка: Невозможно получить статус. (TG ID: ${telegramId})</span>`;
+                return;
+            }
+
+            const subscriptionRef = doc(window.db, `artifacts/${window.appId}/users/${userId}/subscription/status_doc`);
+            
+            // onSnapshot для отслеживания изменений в реальном времени
+            onSnapshot(subscriptionRef, (docSnap) => {
+                const indicator = document.getElementById('status-indicator');
+                const info = document.getElementById('status-info');
+                const vlessContainer = document.getElementById('vless-container');
+                const vlessLinkDisplay = document.getElementById('vless-link-display');
+
+                if (docSnap.exists() && docSnap.data().status === 'active') {
+                    const data = docSnap.data();
+                    const expiryDate = data.expiry_date.toDate();
+                    const formattedDate = expiryDate.toLocaleDateString('ru-RU', { year: 'numeric', month: 'long', day: 'numeric' });
+                    
+                    indicator.textContent = 'Активна ✅';
+                    indicator.className = 'status-indicator status-active';
+                    info.innerHTML = `
+                        <p>Дата истечения: <span id="expiry-date">${formattedDate}</span></p>
+                        <p>Пользователь (Firebase ID): ${userId}</p>
+                    `;
+
+                    vlessLinkDisplay.textContent = data.vless_link;
+                    vlessContainer.style.display = 'flex';
+                } else {
+                    indicator.textContent = 'Неактивна ❌';
+                    indicator.className = 'status-indicator status-inactive';
+                    info.innerHTML = `
+                        <p>Дата истечения: <span id="expiry-date">Нет активной подписки</span></p>
+                        <p>Пользователь (Firebase ID): ${userId}</p>
+                    `;
+                    vlessContainer.style.display = 'none';
+                }
+            }, (error) => {
+                console.error("Ошибка при получении статуса подписки:", error);
+                document.getElementById('status-info').innerHTML = 
+                    `<span class="text-red-500">❌ Ошибка: Не удалось получить статус. ${error.message}</span>`;
+            });
+        }
+        
+        // --- Логика Кнопок ---
+
+        // 1. Тарифы и Оплата
+        function renderTariffs() {
+            const grid = document.getElementById('tariff-grid');
+            grid.innerHTML = TARIFFS.map(t => `
+                <div class="tariff-card">
+                    <button class="btn" onclick="buySubscription(${t.months}, ${t.price})">
+                        ${t.months} мес. <span class="btn-price">${t.price} ₽</span>
+                        ${t.description ? `<span style="font-size:0.75em; opacity:0.8;">(${t.description})</span>` : ''}
+                    </button>
+                </div>
+            `).join('');
+        }
+
+        function buySubscription(months, price) {
+            if (YOOMONEY_RECIPIENT_ID === 'YOUR_YOOMONEY_ACCOUNT_ID') {
+                showModal('Ошибка', 'Пожалуйста, замените "YOUR_YOOMONEY_ACCOUNT_ID" в коде на ваш реальный ID кошелька YooMoney.', 'ОК');
+                return;
+            }
+
+            if (telegramId === 'NO_TG_ID') {
+                showModal('Ошибка', 'Не удалось определить ваш Telegram ID. Откройте это приложение через бота.', 'ОК');
+                return;
+            }
+
+            const comment = `Оплата_${months}мес_TGID_${telegramId}_${APP_NAME}`;
+            
+            // Формируем ссылку для оплаты YooMoney
+            const yooMoneyUrl = `${YOOMONEY_BASE_URL}?amount=${price}&comment=${encodeURIComponent(comment)}`;
+
+            showModal('Подтверждение оплаты', `Вы будете перенаправлены на YooMoney для оплаты ${price} ₽ за ${months} месяцев. 
+                <br><br><strong>Ваш Telegram ID (${telegramId}) будет добавлен в комментарий к платежу для автоматической активации.</strong>
+                <br>После оплаты вернитесь в чат бота.`, 
+                'Перейти к оплате', 
+                () => { 
+                    window.open(yooMoneyUrl, '_blank'); 
+                    // Опционально: сообщаем боту, что пользователь начал оплату
+                    // if (tg) tg.sendData(JSON.stringify({ action: 'purchase_attempt', months: months, amount: price }));
+                }
+            );
+            
+            // --- Для демонстрации автоматического подтверждения (УДАЛИТЕ В РЕАЛЬНОМ ПРОДАКШЕНЕ) ---
+            // В реальном приложении это должен делать ваш БЭКЕНД после получения Webhook от YooMoney.
+            // Здесь это просто для демонстрации работы UI и Firestore.
+            /*
+            setTimeout(() => {
+                window.mockUpdateSubscription(telegramId, months);
+                showModal('Mock: Активация', `[ДЕМО] Подписка на ${months} месяцев активирована! (Это должно происходить на вашем БЭКЕНДЕ!)`, 'Готово');
+            }, 3000);
+            */
+            // -----------------------------------------------------------------------------------
+        }
+
+
+        // 2. Кнопки скачивания
+        function renderDownloadButtons() {
+            const grid = document.getElementById('download-grid');
+            grid.innerHTML = Object.keys(DOWNLOAD_LINKS).map(key => {
+                const item = DOWNLOAD_LINKS[key];
+                return `
+                    <button class="btn" onclick="openLink('${item.url}')" title="Скачать для ${item.name}">
+                        ${item.icon} ${item.name}
+                    </button>
+                `;
+            }).join('');
+        }
+
+        // 3. Кнопки инструкций
+        function renderInstructionButtons() {
+            const grid = document.getElementById('instructions-grid');
+            grid.innerHTML = Object.keys(INSTRUCTION_LINKS).map(key => {
+                const item = INSTRUCTION_LINKS[key];
+                return `
+                    <button class="btn" onclick="openLink('${item.url}')" style="font-size: 0.9em;" title="Инструкция для ${item.name}">
+                        ${item.icon} Инструкция (${item.name})
+                    </button>
+                `;
+            }).join('');
+        }
+
+        // Общая функция для открытия ссылок
+        function openLink(url) {
+            if (tg) {
+                // Используем функцию Telegram Web App для открытия внешних ссылок
+                tg.openLink(url);
+            } else {
+                // Если не в Web App, просто открываем в новом окне
+                window.open(url, '_blank');
             }
         }
 
-        // Smooth scroll for anchor links
-        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-            anchor.addEventListener('click', function (e) {
-                e.preventDefault();
-                const target = document.querySelector(this.getAttribute('href'));
-                if (target) {
-                    target.scrollIntoView({
-                        behavior: 'smooth',
-                        block: 'start'
-                    });
-                }
-            });
-        });
+        // Функция копирования VLESS-ссылки
+        function copyVlessLink() {
+            const link = document.getElementById('vless-link-display').textContent;
+            
+            // Использование document.execCommand('copy') для совместимости с iframe
+            const textarea = document.createElement('textarea');
+            textarea.value = link;
+            document.body.appendChild(textarea);
+            textarea.select();
+            
+            try {
+                document.execCommand('copy');
+                showToast('Ссылка скопирована!');
+            } catch (err) {
+                console.error('Не удалось скопировать текст:', err);
+                showModal('Ошибка', 'Не удалось скопировать ссылку. Попробуйте скопировать вручную.', 'ОК');
+            }
+            
+            document.body.removeChild(textarea);
+        }
+
+        // --- Утилиты UI (Замена alert()/confirm()) ---
+        
+        // Создание элемента модального окна (для showModal)
+        function createModalElement(title, message, buttonText, callback) {
+            const modalHtml = `
+                <div id="custom-modal-overlay" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7); z-index: 10000; display: flex; justify-content: center; align-items: center;">
+                    <div style="background: ${tg ? tg.themeParams.secondary_bg_color : '#1a1a2e'}; padding: 25px; border-radius: 12px; max-width: 350px; width: 90%; text-align: center; box-shadow: 0 5px 20px rgba(0, 0, 0, 0.5); border: 1px solid ${tg ? tg.themeParams.link_color : 'var(--accent-color)'}; color: ${tg ? tg.themeParams.text_color : 'var(--text-dark)'};">
+                        <h3 style="font-size: 1.4em; margin-bottom: 15px; color: ${tg ? tg.themeParams.link_color : 'var(--accent-color)'};">${title}</h3>
+                        <p style="margin-bottom: 25px; line-height: 1.5; font-size: 0.95em;">${message}</p>
+                        <button id="modal-action-btn" style="padding: 10px 20px; background: ${tg ? tg.themeParams.button_color : 'var(--accent-color)'}; color: ${tg ? tg.themeParams.button_text_color : '#000'}; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; transition: background 0.2s;">
+                            ${buttonText}
+                        </button>
+                    </div>
+                </div>
+            `;
+            document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+            document.getElementById('modal-action-btn').onclick = () => {
+                document.getElementById('custom-modal-overlay').remove();
+                if (callback) callback();
+            };
+        }
+
+        // Показ модального окна
+        function showModal(title, message, buttonText, callback = null) {
+            // Удаляем старое окно, если оно есть
+            const existingModal = document.getElementById('custom-modal-overlay');
+            if (existingModal) existingModal.remove();
+
+            createModalElement(title, message, buttonText, callback);
+        }
+        
+        // Показ "тоста" (ненавязчивое уведомление)
+        function showToast(message, duration = 3000) {
+            if (tg && tg.showPopup) {
+                 // Если доступно, используем родной pop-up Telegram (более нативно)
+                 tg.showPopup({
+                    title: '',
+                    message: message,
+                    buttons: [{ type: 'ok', text: 'OK' }]
+                }, () => {});
+                return;
+            }
+
+            const toast = document.createElement('div');
+            toast.textContent = message;
+            toast.style.cssText = `
+                position: fixed;
+                bottom: 20px;
+                left: 50%;
+                transform: translateX(-50%);
+                background: rgba(0, 0, 0, 0.8);
+                color: white;
+                padding: 10px 20px;
+                border-radius: 8px;
+                z-index: 10001;
+                opacity: 0;
+                transition: opacity 0.3s ease-in-out;
+            `;
+            document.body.appendChild(toast);
+
+            setTimeout(() => {
+                toast.style.opacity = 1;
+            }, 10);
+
+            setTimeout(() => {
+                toast.style.opacity = 0;
+                toast.addEventListener('transitionend', () => toast.remove());
+            }, duration);
+        }
+
     </script>
 </body>
 </html>
