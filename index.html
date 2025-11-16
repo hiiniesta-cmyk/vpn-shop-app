@@ -11,6 +11,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 
     <style>
+        /* General Reset and Base Styles */
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -23,83 +24,151 @@
         }
         body.light-theme { background: #f5f7fa; color: #2d3748; }
 
+        /* Theme Toggle Button */
         .theme-toggle {
             position: fixed; top: 20px; right: 20px; width: 60px; height: 60px;
             background: rgba(0, 212, 255, 0.15); border: 2px solid rgba(0, 212, 255, 0.5);
             border-radius: 50%; cursor: pointer; display: flex; align-items: center;
             justify-content: center; font-size: 1.5em; backdrop-filter: blur(10px);
             transition: all 0.3s ease; z-index: 1000; animation: fadeIn 1s ease-out;
+            box-shadow: 0 0 15px rgba(0, 212, 255, 0.5); /* Усиленное свечение */
         }
-        .theme-toggle:hover { background: rgba(0, 212, 255, 0.25); transform: scale(1.1) rotate(15deg); box-shadow: 0 0 20px rgba(0, 212, 255, 0.5); }
-        body.light-theme .theme-toggle { background: rgba(0, 123, 255, 0.1); border-color: rgba(0, 123, 255, 0.5); }
+        .theme-toggle:hover { background: rgba(0, 212, 255, 0.25); transform: scale(1.1) rotate(15deg); box-shadow: 0 0 30px rgba(0, 212, 255, 0.8); }
+        body.light-theme .theme-toggle { background: rgba(0, 123, 255, 0.1); border-color: rgba(0, 123, 255, 0.5); box-shadow: 0 0 10px rgba(0, 123, 255, 0.3); }
         body.light-theme .theme-toggle:hover { background: rgba(0, 123, 255, 0.2); box-shadow: 0 0 20px rgba(0, 123, 255, 0.4); }
 
+        /* Background Effects */
         .grid-background {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background-image: linear-gradient(rgba(0, 212, 255, 0.03) 1px, transparent 1px),
-                              linear-gradient(90deg, rgba(0, 212, 255, 0.03) 1px, transparent 1px);
+            background-image: linear-gradient(rgba(0, 212, 255, 0.05) 1px, transparent 1px),
+                              linear-gradient(90deg, rgba(0, 212, 255, 0.05) 1px, transparent 1px);
             background-size: 50px 50px; animation: gridMove 20s linear infinite; z-index: 0;
         }
         body.light-theme .grid-background {
-            background-image: linear-gradient(rgba(0, 123, 255, 0.08) 1px, transparent 1px),
-                              linear-gradient(90deg, rgba(0, 123, 255, 0.08) 1px, transparent 1px);
+            background-image: linear-gradient(rgba(0, 123, 255, 0.1) 1px, transparent 1px),
+                              linear-gradient(90deg, rgba(0, 123, 255, 0.1) 1px, transparent 1px);
         }
         @keyframes gridMove { 0% { transform: translate(0, 0); } 100% { transform: translate(50px, 50px); } }
 
-        .orb { position: fixed; border-radius: 50%; filter: blur(80px); opacity: 0.4; z-index: 0; pointer-events: none; }
+        .orb { position: fixed; border-radius: 50%; filter: blur(80px); opacity: 0.5; z-index: 0; pointer-events: none; }
         .orb1 { width: 400px; height: 400px; background: radial-gradient(circle, #00d4ff, transparent); top: -200px; left: -200px; animation: orbFloat1 15s ease-in-out infinite; }
         .orb2 { width: 500px; height: 500px; background: radial-gradient(circle, #7b2cbf, transparent); bottom: -250px; right: -250px; animation: orbFloat2 20s ease-in-out infinite; }
         .orb3 { width: 300px; height: 300px; background: radial-gradient(circle, #ff006e, transparent); top: 50%; left: 50%; animation: orbFloat3 18s ease-in-out infinite; }
-        body.light-theme .orb1 { background: radial-gradient(circle, rgba(0, 123, 255, 0.3), transparent); }
-        body.light-theme .orb2 { background: radial-gradient(circle, rgba(99, 102, 241, 0.25), transparent); }
-        body.light-theme .orb3 { background: radial-gradient(circle, rgba(236, 72, 153, 0.2), transparent); }
+        body.light-theme .orb1 { background: radial-gradient(circle, rgba(0, 123, 255, 0.4), transparent); }
+        body.light-theme .orb2 { background: radial-gradient(circle, rgba(99, 102, 241, 0.35), transparent); }
+        body.light-theme .orb3 { background: radial-gradient(circle, rgba(236, 72, 153, 0.3), transparent); }
         @keyframes orbFloat1 { 0%, 100% { transform: translate(0, 0) scale(1); } 33% { transform: translate(100px, 150px) scale(1.2); } 66% { transform: translate(-50px, 100px) scale(0.8); } }
         @keyframes orbFloat2 { 0%, 100% { transform: translate(0, 0) scale(1); } 33% { transform: translate(-100px, -100px) scale(1.1); } 66% { transform: translate(50px, -150px) scale(0.9); } }
         @keyframes orbFloat3 { 0%, 100% { transform: translate(-50%, -50%) scale(1); } 50% { transform: translate(calc(-50% + 200px), calc(-50% - 100px)) scale(1.3); } }
 
         .container { max-width: 1200px; margin: 0 auto; padding: 20px; position: relative; z-index: 1; }
 
+        /* Header & Logo */
         header { text-align: center; padding: 60px 20px 40px; animation: fadeInDown 0.8s ease-out; }
         .logo {
             font-size: 2.8em; font-weight: bold;
             background: linear-gradient(45deg, #00d4ff, #7b2cbf, #00d4ff); background-size: 200% 200%;
             -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
             margin-bottom: 10px; animation: gradientShift 3s ease infinite, glowPulse 2s ease-in-out infinite;
-            filter: drop-shadow(0 0 20px rgba(0, 212, 255, 0.5));
+            filter: drop-shadow(0 0 25px rgba(0, 212, 255, 0.8)); /* Усиленный неон */
         }
         @keyframes gradientShift { 0%, 100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
-        @keyframes glowPulse { 0%, 100% { filter: drop-shadow(0 0 20px rgba(0, 212, 255, 0.5)); } 50% { filter: drop-shadow(0 0 40px rgba(123, 44, 191, 0.8)); } }
+        @keyframes glowPulse { 0%, 100% { filter: drop-shadow(0 0 25px rgba(0, 212, 255, 0.8)); } 50% { filter: drop-shadow(0 0 45px rgba(123, 44, 191, 1.0)); } }
         .tagline { font-size: 1.2em; color: #b0b0b0; margin-bottom: 30px; animation: fadeIn 1s ease-out 0.3s backwards; }
         body.light-theme .tagline { color: #2d3748; }
 
+        /* Section Titles */
         .section-title {
             font-size: 2.5em; font-weight: 700;
-            text-align: center; margin: 40px 0 20px; color: #00d4ff;
+            text-align: center; margin: 40px 0 20px;
+            background: linear-gradient(90deg, #00d4ff, #7b2cbf);
+            -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+            filter: drop-shadow(0 0 10px rgba(0, 212, 255, 0.4)); /* Легкое свечение */
             display: flex; align-items: center; justify-content: center; gap: 12px;
             animation: fadeInDown 0.8s ease-out;
         }
-        body.light-theme .section-title { color: #007bff; }
+        body.light-theme .section-title { background: none; -webkit-text-fill-color: #007bff; color: #007bff; filter: none; }
+        
+        /* Subtitles for Instructions (larger, as requested) */
+        .section-title-h3 {
+            font-size: 1.8em;
+            font-weight: 700;
+            text-align: center;
+            margin: 30px 0 15px;
+            color: #00d4ff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            animation: fadeInDown 0.8s ease-out;
+        }
+        body.light-theme .section-title-h3 { color: #007bff; }
 
+        /* Card Styles (The "Firebase" look) */
         .card {
-            background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(0, 212, 255, 0.3);
-            padding: 25px; border-radius: 15px; backdrop-filter: blur(10px);
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2); transition: all 0.3s ease;
+            background: rgba(30, 0, 50, 0.4); /* Darker, purple-tinted background */
+            border: 2px solid #7b2cbf; /* Stronger purple border */
+            padding: 25px; border-radius: 15px; backdrop-filter: blur(5px);
+            box-shadow: 0 0 25px rgba(123, 44, 191, 0.5), 0 4px 15px rgba(0, 0, 0, 0.4); /* Двойная тень/свечение */
+            transition: all 0.3s ease;
             animation: fadeInUp 0.8s ease-out;
         }
-        body.light-theme .card { background: rgba(255, 255, 255, 0.9); border-color: rgba(0, 123, 255, 0.3); box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08); }
+        .card:hover {
+            border-color: #00d4ff; /* Смена цвета при наведении */
+            box-shadow: 0 0 35px rgba(0, 212, 255, 0.6), 0 4px 20px rgba(0, 0, 0, 0.6);
+        }
+        body.light-theme .card { 
+            background: #ffffff; 
+            border-color: #007bff; 
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1); 
+        }
+        body.light-theme .card:hover {
+            box-shadow: 0 4px 20px rgba(0, 123, 255, 0.2);
+        }
 
+        /* Buttons */
         .btn {
-            padding: 15px 30px; background: rgba(0, 212, 255, 0.08); border: 2px solid rgba(0, 212, 255, 0.5);
+            padding: 15px 30px; 
+            background: linear-gradient(45deg, rgba(0, 212, 255, 0.1), rgba(123, 44, 191, 0.1));
+            border: 2px solid #00d4ff;
             color: #00d4ff; font-weight: 600; border-radius: 50px; cursor: pointer;
             transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); position: relative; overflow: hidden;
             display: flex; align-items: center; justify-content: center; gap: 8px; text-decoration: none;
+            box-shadow: 0 0 5px rgba(0, 212, 255, 0.3);
         }
-        .btn:hover { background: rgba(0, 212, 255, 0.15); box-shadow: 0 0 30px rgba(0, 212, 255, 0.6); transform: translateY(-3px); }
-        body.light-theme .btn { background: rgba(0, 123, 255, 0.15); border-color: rgba(0, 123, 255, 0.6); color: #0056b3; }
-        body.light-theme .btn:hover { background: rgba(0, 123, 255, 0.25); }
+        .btn:hover { 
+            background: linear-gradient(45deg, rgba(0, 212, 255, 0.3), rgba(123, 44, 191, 0.3));
+            box-shadow: 0 0 40px rgba(0, 212, 255, 0.8); 
+            transform: translateY(-3px) scale(1.02); 
+            border-color: #7b2cbf;
+        }
+        body.light-theme .btn { background: rgba(0, 123, 255, 0.15); border-color: rgba(0, 123, 255, 0.6); color: #0056b3; box-shadow: none; }
+        body.light-theme .btn:hover { background: rgba(0, 123, 255, 0.25); box-shadow: 0 4px 15px rgba(0, 123, 255, 0.3); }
 
-        .btn-primary { background: rgba(0, 212, 255, 0.2); border-color: #00d4ff; box-shadow: 0 0 15px rgba(0, 212, 255, 0.4); }
-        body.light-theme .btn-primary { background: #007bff; color: #fff; }
+        .btn-primary { 
+            background: linear-gradient(90deg, #00d4ff, #7b2cbf); 
+            border-color: white; 
+            color: white;
+            box-shadow: 0 0 20px rgba(0, 212, 255, 0.7);
+        }
+        body.light-theme .btn-primary { background: #007bff; color: #fff; border-color: #0056b3; box-shadow: 0 4px 15px rgba(0, 123, 255, 0.4); }
+
+        /* VLESS Container */
+        .vless-container { 
+            display: flex; gap: 10px; align-items: center; padding: 15px; 
+            background: rgba(0, 212, 255, 0.1); 
+            border: 1px solid #00d4ff; 
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 212, 255, 0.4); /* Добавлено свечение */
+        }
+        .vless-link-box { flex: 1; font-family: monospace; font-size: 0.85em; word-break: break-all; }
+        .vless-copy-btn { 
+            background: #2b6cb0; color: white; border: none; 
+            box-shadow: 0 0 5px #2b6cb0; 
+        }
+        .vless-copy-btn:hover {
+            box-shadow: 0 0 15px #00d4ff;
+        }
 
         .grid-2 { display: grid; gap: 15px; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
         .grid-4 { display: grid; gap: 15px; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); }
@@ -107,10 +176,6 @@
         .status-indicator { padding: 6px 16px; border-radius: 8px; font-weight: bold; font-size: 0.9em; }
         .status-active { background: #38a169; color: white; }
         .status-inactive { background: #e53e3e; color: white; }
-
-        .vless-container { display: flex; gap: 10px; align-items: center; padding: 15px; background: rgba(0, 212, 255, 0.05); border: 1px solid rgba(0, 212, 255, 0.3); border-radius: 10px; }
-        .vless-link-box { flex: 1; font-family: monospace; font-size: 0.85em; word-break: break-all; }
-        .vless-copy-btn { background: #2b6cb0; color: white; border: none; }
 
         .warning-card {
             background: rgba(255, 193, 7, 0.1); border: 1px dashed #ffc107; padding: 15px;
@@ -131,6 +196,7 @@
             .grid-4 { grid-template-columns: 1fr 1fr; }
             .logo { font-size: 2em; }
             .section-title { font-size: 2em; }
+            .section-title-h3 { font-size: 1.5em; }
         }
     </style>
 </head>
@@ -146,6 +212,8 @@
     <div class="orb orb3"></div>
 
     <div class="container">
+        <!-- Удален блок ввода API, чтобы вернуть чистое оформление -->
+        
         <header>
             <div class="logo">Shinobu Proxy</div>
             <div class="tagline">Ваша приватность — наш приоритет</div>
@@ -183,7 +251,7 @@
             <div class="card">
                 <h3 id="invited-count-display" style="color: #00d4ff; text-align: center; margin-bottom: 15px;">Приглашено: 0</h3>
                 <p style="font-size: 0.95em; margin-bottom: 15px;">Приглашайте друзей — вы оба получите бонус!</p>
-                <div class="vless-container" style="background: rgba(123, 44, 191, 0.05);">
+                <div class="vless-container" style="background: rgba(123, 44, 191, 0.1); border: 1px solid #7b2cbf; box-shadow: 0 0 10px rgba(123, 44, 191, 0.4);">
                     <div class="vless-link-box" id="referral-link-display">Загрузка...</div>
                     <button class="btn vless-copy-btn" id="copy-referral-btn" style="background: #7b2cbf;"><i class="fas fa-copy"></i> Копировать</button>
                 </div>
@@ -203,12 +271,14 @@
         <section>
             <h2 class="section-title"><i class="fas fa-mobile-alt"></i> Подключение и Инструкции</h2>
 
-            <h3 style="text-align: center; display: flex; align-items: center; justify-content: center; gap: 8px; margin: 25px 0 10px; font-size: 1.4em; color: #00d4ff;">
+            <!-- Используем новый класс section-title-h3 (остался большим) -->
+            <h3 class="section-title-h3">
                 <i class="fas fa-download"></i> Скачать приложение
             </h3>
             <div class="grid grid-4" id="download-grid"></div>
 
-            <h3 style="text-align: center; display: flex; align-items: center; justify-content: center; gap: 8px; margin: 25px 0 10px; font-size: 1.4em; color: #00d4ff;">
+            <!-- Используем новый класс section-title-h3 (остался большим) -->
+            <h3 class="section-title-h3">
                 <i class="fas fa-book"></i> Инструкции по настройке
             </h3>
             <div class="grid grid-4" id="instructions-grid"></div>
@@ -220,7 +290,9 @@
         const YOOMONEY_RECIPIENT_ID = '4100119271147598';
         const BOT_USERNAME = 'ShinobuProxyBot';
         const TRIAL_DAYS = 3;
-        const API_BASE = window.location.origin + '/api';
+        
+        // BASE API URL - теперь берется из LocalStorage
+        let API_BASE = localStorage.getItem('shinobu_api_base') || (window.location.origin + '/api');
 
         const DOWNLOAD_LINKS = {
             android: { name: 'Android', icon: 'fab fa-android', url: 'https://github.com/2dust/v2rayNG/releases/download/1.10.28/v2rayNG_1.10.28-fdroid_universal.apk' },
@@ -244,48 +316,87 @@
             { months: 6, price: 618.56, description: 'Супер-экономия' }
         ];
 
+        // АДАПТЕР/ЗАГЛУШКА FIREBASE ДЛЯ ВАШЕГО SQLITE API
         window.firestore = {
             doc: () => ({}),
             getDoc: async () => {
-                const res = await fetch(`${API_BASE}/user/${userId}`);
-                const data = await res.json();
-                return { exists: () => !!data.userId, data: () => data };
+                try {
+                    const res = await fetch(`${API_BASE}/user/${userId}`);
+                    if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+                    const data = await res.json();
+                    return { exists: () => !!data.telegramId, data: () => data };
+                } catch (error) {
+                    console.error("Ошибка при получении данных от API:", error);
+                    return { exists: () => false, data: () => ({}) };
+                }
             },
             setDoc: async (ref, data, { merge } = {}) => {
-                await fetch(`${API_BASE}/user/${userId}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ ...data, telegramId })
-                });
-                window.dispatchEvent(new Event('db-update'));
+                try {
+                    const res = await fetch(`${API_BASE}/user/${userId}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ ...data, telegramId })
+                    });
+                    if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+                    window.dispatchEvent(new Event('db-update'));
+                } catch (error) {
+                    console.error("Ошибка при отправке данных в API:", error);
+                    showToast('Ошибка связи с сервером!', 5000);
+                }
             },
+            // Эмуляция onSnapshot через Polling
             onSnapshot: (ref, callback) => {
                 const poll = setInterval(async () => {
                     const res = await fetch(`${API_BASE}/user/${userId}`);
-                    const data = await res.json();
-                    callback({ exists: () => !!data.userId, data: () => data });
-                }, 5000);
-                return () => clearInterval(poll);
+                    // Тут мы предполагаем, что если telegramId есть, значит пользователь существует
+                    const data = await res.json().catch(() => ({})); 
+                    callback({ exists: () => !!data.telegramId, data: () => data });
+                }, 5000); // Опрос каждые 5 секунд
+                return () => clearInterval(poll); // Функция для остановки опроса
             },
             serverTimestamp: () => Date.now()
         };
 
         window.addEventListener('load', () => {
-            if (window.Telegram?.WebApp) { tg = window.Telegram.WebApp; tg.ready(); tg.expand(); isInTelegram = tg.initData !== ''; }
+            // Инициализация Telegram WebApp
+            if (window.Telegram?.WebApp) { 
+                tg = window.Telegram.WebApp; 
+                tg.ready(); 
+                tg.expand(); 
+                isInTelegram = tg.initData !== ''; 
+            }
+            
+            // Загрузка темы
             const savedTheme = localStorage.getItem('theme');
             if (savedTheme === 'light' || (!savedTheme && window.matchMedia('(prefers-color-scheme: light)').matches)) {
                 document.body.classList.add('light-theme');
                 document.querySelector('.theme-icon').textContent = 'Sun';
             }
+            
+            // Определение ID пользователя
             userId = localStorage.getItem('shinobu_user_id') || 'local_' + Math.random().toString(36).substr(2, 9);
             localStorage.setItem('shinobu_user_id', userId);
             document.getElementById('firebase-user-id').textContent = userId;
             telegramId = tg?.initDataUnsafe?.user?.id || 'DEV_USER';
             document.getElementById('telegram-id-display').textContent = telegramId;
+            
+            // Установка API URL в поле ввода (УДАЛЕНО)
+            // document.getElementById('api-base-url').value = API_BASE;
 
-            renderTariffs(); renderDownloadButtons(); renderInstructionButtons(); generateReferralLink();
+            // Рендеринг UI
+            renderTariffs(); 
+            renderDownloadButtons(); 
+            renderInstructionButtons(); 
+            generateReferralLink();
             window.startSubscriptionListener();
         });
+        
+        // Функция для обновления API URL (УДАЛЕНО)
+        // window.updateApiBaseUrl = (url) => {
+        //     localStorage.setItem('shinobu_api_base', url);
+        //     API_BASE = url;
+        //     showToast('URL API обновлен. Перезагрузите страницу для применения.', 5000);
+        // }
 
         function toggleTheme() {
             const body = document.body;
@@ -312,10 +423,17 @@
                 }
 
                 const data = docSnap.data();
-                if (data.vless_link) vlessDisplay.innerHTML = `<strong>КЛЮЧ:</strong> ${data.vless_link}`;
+                
+                // Проверяем, есть ли поле vless_link, иначе используем заглушку
+                if (data.vless_link) {
+                    vlessDisplay.innerHTML = `<strong>КЛЮЧ:</strong> ${data.vless_link}`;
+                } else {
+                     vlessDisplay.innerHTML = '<span style="color: #7b2cbf;">Ключ генерируется...</span>';
+                }
 
                 if (data.status === 'active' && data.expiry_date) {
-                    const date = new Date(data.expiry_date);
+                    // Используем number, т.к. вы используете Date.now() в заглушке
+                    const date = new Date(Number(data.expiry_date)); 
                     const formatted = date.toLocaleDateString('ru-RU', { year: 'numeric', month: 'long', day: 'numeric' });
                     indicator.textContent = 'Активна'; indicator.className = 'status-indicator status-active';
                     info.innerHTML = `<p>Дата истечения: <span id="expiry-date">${formatted}</span></p><p>Пользователь: ${userId}</p>`;
@@ -333,6 +451,7 @@
                 window.updateReferralUI(data.invited_count || 0);
             };
 
+            // Запуск Polling
             window.firestore.onSnapshot(null, handleSnapshot);
         };
 
@@ -354,7 +473,7 @@
                 invited_count: 0
             }, { merge: true });
 
-            showToast('Пробный период активирован!');
+            showToast('Пробный период активирован! Ваш ключ генерируется.');
         };
 
         window.generateReferralLink = () => {
@@ -364,11 +483,19 @@
         };
 
         function copyText(text, msg) {
-            navigator.clipboard.writeText(text).then(() => showToast(msg));
+            // Используем execCommand для лучшей совместимости с iframe
+            const el = document.createElement('textarea');
+            el.value = text;
+            document.body.appendChild(el);
+            el.select();
+            document.execCommand('copy');
+            document.body.removeChild(el);
+
+            showToast(msg);
         }
         window.copyVlessLink = () => {
             const text = document.getElementById('vless-link-display').textContent.replace('КЛЮЧ:', '').trim();
-            if (text.includes('Ключ появится')) return showToast('Активируйте подписку!');
+            if (text.includes('Ключ появится') || text.includes('Ключ генерируется')) return showToast('Активируйте подписку или дождитесь ключа!');
             copyText(text, 'Ключ скопирован!');
         };
 
