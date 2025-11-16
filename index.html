@@ -89,6 +89,7 @@
                 expiryDate.setMonth(expiryDate.getMonth() + months);
                 
                 // Генерация VLESS-ссылки (это должно быть реализовано на вашем БЭКЕНДЕ)
+                // Генерируем тестовый ключ
                 const uuid = crypto.randomUUID();
                 const mockVlessLink = `vless://${uuid}@server.shinobu.net:443?security=tls&fp=chrome&sni=server.shinobu.net#Shinobu_Proxy_${months}m_TG${telegramId}`;
 
@@ -136,21 +137,40 @@
             background: var(--bg-dark);
             color: var(--text-dark);
             min-height: 100vh;
-            transition: background 0.5s ease, color 0.5s ease;
+            transition: background 0.3s ease, color 0.3s ease;
             position: relative;
         }
 
-        /* Адаптация под светлую тему (если Telegram ее использует) */
+        /* Адаптация под светлую тему */
         body.light-theme {
             background: var(--bg-light);
             color: var(--text-light);
         }
-        body.light-theme .tagline { color: var(--text-light); }
+        body.light-theme .tagline { color: #555; }
+        body.light-theme .logo { filter: drop-shadow(0 0 5px rgba(0, 123, 255, 0.2)); }
         body.light-theme .section-title { color: #007bff; border-bottom-color: var(--border-light); }
-        body.light-theme .card { background: var(--card-light); border-color: var(--border-light); box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08); }
-        body.light-theme .btn { background: rgba(0, 123, 255, 0.1); border-color: #007bff; color: #007bff; }
-        body.light-theme .btn:hover { background: rgba(0, 123, 255, 0.25); box-shadow: 0 0 15px rgba(0, 123, 255, 0.4); }
-        body.light-theme .vless-link-box { background: #e2e8f0; border-color: #3182ce; }
+        body.light-theme .card { 
+            background: var(--card-light); 
+            border-color: var(--border-light); 
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08); 
+            color: var(--text-light);
+        }
+        body.light-theme .btn { 
+            background: rgba(0, 123, 255, 0.1); 
+            border-color: #007bff; 
+            color: #007bff; 
+        }
+        body.light-theme .btn:hover { 
+            background: rgba(0, 123, 255, 0.25); 
+            box-shadow: 0 0 15px rgba(0, 123, 255, 0.4); 
+        }
+        body.light-theme .vless-container { background: #e2e8f0; border-color: #3182ce; }
+        body.light-theme .vless-link-box { color: var(--text-light); }
+        body.light-theme .grid-background { 
+            background-image: linear-gradient(rgba(0, 123, 255, 0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(0, 123, 255, 0.05) 1px, transparent 1px);
+        }
+        body.light-theme .orb1 { background: radial-gradient(circle, rgba(0, 123, 255, 0.25), transparent); }
+        body.light-theme .orb2 { background: radial-gradient(circle, rgba(99, 102, 241, 0.2), transparent); }
 
 
         .container {
@@ -162,7 +182,7 @@
         }
 
         /* Заголовок */
-        header { text-align: center; padding: 30px 0 20px; }
+        header { text-align: center; padding: 30px 0 20px; position: relative; }
         .logo {
             font-size: 2.2em;
             font-weight: bold;
@@ -172,7 +192,31 @@
             -webkit-text-fill-color: transparent;
             filter: drop-shadow(0 0 10px rgba(0, 212, 255, 0.3));
         }
-        .tagline { font-size: 1em; color: #b0b0b0; margin-top: 5px; }
+        .tagline { font-size: 1em; color: #b0b0b0; margin-top: 5px; transition: color 0.3s; }
+
+        /* Кнопка переключения темы */
+        .theme-toggle {
+            position: absolute;
+            top: 25px;
+            right: 20px;
+            background: none;
+            border: none;
+            font-size: 1.5em;
+            cursor: pointer;
+            color: var(--accent-color);
+            padding: 5px;
+            border-radius: 50%;
+            transition: all 0.3s ease;
+            line-height: 1;
+        }
+        .theme-toggle:hover {
+            color: var(--accent-dark);
+            background: rgba(255, 255, 255, 0.1);
+            transform: scale(1.1);
+        }
+        body.light-theme .theme-toggle { color: #555; }
+        body.light-theme .theme-toggle:hover { color: #000; background: rgba(0, 0, 0, 0.05); }
+
 
         /* Общая секция */
         .section-title {
@@ -182,6 +226,7 @@
             border-bottom: 2px solid var(--border-dark);
             padding-bottom: 10px;
             text-align: center;
+            transition: color 0.3s, border-bottom-color 0.3s;
         }
 
         /* Карточка */
@@ -238,25 +283,35 @@
             box-shadow: 0 0 20px rgba(123, 44, 191, 0.5);
         }
         .tariff-card:nth-child(4) .btn:hover { background: linear-gradient(90deg, #6a24aa, var(--accent-dark)); }
+        body.light-theme .tariff-card:nth-child(4) .btn {
+            background: linear-gradient(90deg, #6c5ce7, #007bff);
+            border-color: #6c5ce7;
+        }
         
         /* Статус подписки */
         .status-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
-        .status-indicator { padding: 5px 15px; border-radius: 8px; font-weight: bold; font-size: 0.9em; transition: background 0.5s; }
+        .status-indicator { padding: 5px 15px; border-radius: 8px; font-weight: bold; font-size: 0.9em; transition: background 0.3s; }
         .status-inactive { background-color: #e53e3e; color: white; }
         .status-active { background-color: #38a169; color: white; }
         .status-loading { background-color: #3182ce; color: white; }
 
+        /* VLESS Key Display */
+        .vless-container { 
+            display: flex; gap: 10px; align-items: center; 
+            margin-top: 15px; 
+            padding: 15px;
+            border-radius: 10px;
+            background: rgba(0, 212, 255, 0.05);
+            border: 1px solid var(--border-dark);
+            transition: background 0.3s, border-color 0.3s;
+        }
         .vless-link-box {
-            background: rgba(0, 0, 0, 0.3);
-            padding: 10px;
-            border-radius: 8px;
+            flex-grow: 1;
             word-break: break-all;
             font-family: monospace;
             font-size: 0.9em;
-            margin-top: 15px;
-            border: 1px dashed var(--accent-color);
+            line-height: 1.4;
         }
-        .vless-container { display: flex; gap: 10px; align-items: stretch; margin-top: 15px; }
         .vless-copy-btn {
             flex-shrink: 0;
             padding: 10px 15px;
@@ -275,19 +330,18 @@
             background-size: 50px 50px;
             z-index: 0;
             pointer-events: none;
+            transition: background-image 0.3s;
         }
-        .orb { position: fixed; border-radius: 50%; filter: blur(80px); opacity: 0.4; z-index: 0; pointer-events: none; }
+        .orb { position: fixed; border-radius: 50%; filter: blur(80px); opacity: 0.4; z-index: 0; pointer-events: none; transition: background 0.3s; }
         .orb1 { width: 400px; height: 400px; background: radial-gradient(circle, #00d4ff, transparent); top: -200px; left: -200px; }
         .orb2 { width: 500px; height: 500px; background: radial-gradient(circle, #7b2cbf, transparent); bottom: -250px; right: -250px; }
-        body.light-theme .orb1 { background: radial-gradient(circle, rgba(0, 123, 255, 0.3), transparent); }
-        body.light-theme .orb2 { background: radial-gradient(circle, rgba(99, 102, 241, 0.25), transparent); }
         
         /* Медиа-запросы */
         @media (max-width: 600px) {
             .grid-4 { grid-template-columns: 1fr 1fr; }
             .grid-2 { grid-template-columns: 1fr; }
-            .vless-container { flex-direction: column; }
-            .vless-copy-btn { width: 100%; }
+            .vless-container { flex-direction: column; align-items: stretch; }
+            .vless-copy-btn { width: 100%; margin-top: 10px; }
         }
     </style>
 </head>
@@ -300,6 +354,14 @@
     <div class="container">
         <!-- Header -->
         <header>
+            <!-- Кнопка переключения темы -->
+            <button class="theme-toggle" id="theme-toggle" aria-label="Переключить тему">
+                <!-- SVG-иконка Луны (по умолчанию - темная тема) -->
+                <svg id="moon-icon" style="display:block;" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+                <!-- SVG-иконка Солнца (для светлой темы) -->
+                <svg id="sun-icon" style="display:none;" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
+            </button>
+            
             <div class="logo">🔒 Shinobu Proxy</div>
             <div class="tagline">Ваша приватность — наш приоритет</div>
             <div style="font-size: 0.8em; margin-top: 10px; opacity: 0.7;">
@@ -307,9 +369,9 @@
             </div>
         </header>
 
-        <!-- 1. Статус Подписки -->
+        <!-- 1. Статус Подписки и Ключ (Обновленный Блок) -->
         <section class="subscription-status-section">
-            <h2 class="section-title">✨ Статус Подписки</h2>
+            <h2 class="section-title">✨ Ваш Статус и Ключ</h2>
             <div class="card">
                 <div class="status-header">
                     <h3>Текущий статус:</h3>
@@ -320,10 +382,10 @@
                     <p>Пользователь (Firebase ID): <span id="firebase-user-id">...</span></p>
                 </div>
 
-                <!-- Блок с VLESS-ссылкой (появляется при активной подписке) -->
-                <div id="vless-container" class="vless-container" style="display: none;">
-                    <div class="vless-link-box" id="vless-link-display" style="flex-grow: 1;">
-                        VLESS-ссылка будет здесь.
+                <!-- Блок с VLESS-ссылкой (Теперь всегда видим) -->
+                <div id="vless-container" class="vless-container">
+                    <div class="vless-link-box" id="vless-link-display">
+                        Загрузка ключа...
                     </div>
                     <button class="btn vless-copy-btn" onclick="copyVlessLink()">
                         📋 Копировать
@@ -338,7 +400,7 @@
             <div class="grid grid-2" id="tariff-grid">
                 <!-- Тарифы будут добавлены JS -->
             </div>
-            <div class="card" style="text-align: center; font-size: 0.9em; margin-top: 15px; opacity: 0.9; border: 1px dashed #7b2cbf;">
+            <div class="card" style="text-align: center; font-size: 0.9em; margin-top: 15px; opacity: 0.9; border: 1px dashed var(--secondary-color);">
                  <p><strong>⚠️ ВНИМАНИЕ:</strong> После оплаты через YooMoney, пожалуйста, вернитесь в чат с ботом. 
                  <br>Активация подписки произойдет автоматически после подтверждения платежа вашим ботом (до 1-5 минут).
                  <br>Ваш Telegram ID используется в комментарии для привязки покупки.</p>
@@ -366,6 +428,7 @@
     
     <!-- Стили модального окна для замены alert/confirm -->
     <style>
+        /* Модальное окно использует переменные темы */
         #custom-modal-overlay {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
             background: rgba(0, 0, 0, 0.7); z-index: 10000; 
@@ -374,7 +437,13 @@
         #modal-content {
             padding: 25px; border-radius: 12px; max-width: 350px; width: 90%; 
             text-align: center; box-shadow: 0 5px 20px rgba(0, 0, 0, 0.5); 
+            background: var(--bg-dark); /* Исходный фон */
+            color: var(--text-dark); /* Исходный цвет текста */
             transition: all 0.3s ease;
+        }
+        .light-theme #modal-content {
+            background: var(--bg-light); /* Фон для светлой темы */
+            color: var(--text-light); /* Цвет текста для светлой темы */
         }
         #modal-action-btn {
             padding: 10px 20px; border: none; border-radius: 8px; font-weight: 600; 
@@ -419,30 +488,67 @@
         ];
 
         // --- Инициализация и UI функции ---
+        
+        // Функция для применения темы
+        function applyTheme(isLight) {
+            const body = document.body;
+            const sunIcon = document.getElementById('sun-icon');
+            const moonIcon = document.getElementById('moon-icon');
+
+            if (isLight) {
+                body.classList.add('light-theme');
+                sunIcon.style.display = 'block';
+                moonIcon.style.display = 'none';
+            } else {
+                body.classList.remove('light-theme');
+                sunIcon.style.display = 'none';
+                moonIcon.style.display = 'block';
+            }
+            // Сохраняем выбор темы в локальном хранилище
+            localStorage.setItem('theme', isLight ? 'light' : 'dark');
+        }
+
+        // Обработчик переключения темы
+        document.addEventListener('DOMContentLoaded', () => {
+             const themeToggle = document.getElementById('theme-toggle');
+             themeToggle.addEventListener('click', () => {
+                // Определяем текущую тему и переключаем
+                const isLight = document.body.classList.contains('light-theme');
+                applyTheme(!isLight);
+             });
+        });
 
         window.addEventListener('load', function() {
-            // Инициализация Telegram Web App
+            // 1. Применение сохраненной/системной темы
+            let storedTheme = localStorage.getItem('theme');
+            let systemIsLight = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches;
+
             if (window.Telegram && window.Telegram.WebApp) {
                 tg = window.Telegram.WebApp;
                 tg.ready();
                 tg.expand();
                 
-                // Настройка темы
-                const bgColor = tg.themeParams.bg_color;
-                document.body.style.backgroundColor = bgColor;
+                // Приоритет теме Telegram
                 if (tg.colorScheme === 'light') {
-                     document.body.classList.add('light-theme');
-                }
-
-                if (tg.initDataUnsafe.user) {
-                    telegramId = tg.initDataUnsafe.user.id;
-                    document.getElementById('telegram-id-display').textContent = telegramId;
+                    applyTheme(true);
                 } else {
-                    document.getElementById('telegram-id-display').textContent = 'ID не определен';
-                    telegramId = 'NO_TG_ID';
+                    applyTheme(false);
                 }
             } else {
                 console.warn('Telegram WebApp API не найдено. Режим разработки.');
+                // Если не в TWA, используем локальное хранилище или системную тему
+                if (storedTheme) {
+                    applyTheme(storedTheme === 'light');
+                } else {
+                    applyTheme(systemIsLight);
+                }
+            }
+            
+            // Настройка TWA ID
+            if (tg && tg.initDataUnsafe.user) {
+                telegramId = tg.initDataUnsafe.user.id;
+                document.getElementById('telegram-id-display').textContent = telegramId;
+            } else {
                 telegramId = 'NO_TG_ID_DEV';
                 document.getElementById('telegram-id-display').textContent = `${telegramId} (DEV)`;
             }
@@ -475,12 +581,19 @@
             onSnapshot(subscriptionRef, (docSnap) => {
                 const indicator = document.getElementById('status-indicator');
                 const info = document.getElementById('status-info');
-                const vlessContainer = document.getElementById('vless-container');
                 const vlessLinkDisplay = document.getElementById('vless-link-display');
                 
-                // Сбрасываем стили контейнера
-                vlessContainer.style.display = 'none';
+                // Логика отображения VLESS ключа (ВСЕГДА видим)
+                if (docSnap.exists() && docSnap.data().vless_link) {
+                    const data = docSnap.data();
+                    vlessLinkDisplay.innerHTML = `<strong>КЛЮЧ:</strong> ${data.vless_link}`;
+                    vlessLinkDisplay.style.opacity = '1';
+                } else {
+                    vlessLinkDisplay.innerHTML = '<span style="color: #7b2cbf;">Ключ появится здесь после оплаты подписки.</span>';
+                    vlessLinkDisplay.style.opacity = '0.9';
+                }
 
+                // Логика отображения Статуса Подписки
                 if (docSnap.exists() && docSnap.data().status === 'active') {
                     const data = docSnap.data();
                     const expiryDate = data.expiry_date.toDate();
@@ -492,10 +605,6 @@
                         <p>Дата истечения: <span id="expiry-date">${formattedDate}</span></p>
                         <p>Пользователь (Firebase ID): ${userId}</p>
                     `;
-
-                    // Показываем VLESS ссылку
-                    vlessLinkDisplay.textContent = data.vless_link || 'Ошибка: ссылка отсутствует';
-                    vlessContainer.style.display = 'flex';
                 } else {
                     indicator.textContent = 'Неактивна ❌';
                     indicator.className = 'status-indicator status-inactive';
@@ -503,7 +612,6 @@
                         <p>Дата истечения: <span id="expiry-date">Нет активной подписки</span></p>
                         <p>Пользователь (Firebase ID): ${userId}</p>
                     `;
-                    vlessContainer.style.display = 'none';
                 }
             }, (error) => {
                 console.error("Ошибка при получении статуса подписки:", error);
@@ -536,7 +644,7 @@
 
             // Комментарий для привязки оплаты к пользователю (отображается в выписке)
             const comment = `Оплата_${months}мес_TGID_${telegramId}_${APP_NAME}`;
-            // Целевое описание платежа (отображается пользователю на форме)
+            // Целевое описание платежа (отображается пользователю на форме YooMoney)
             const targets = `Оплата подписки Shinobu Proxy на ${months} мес.`;
 
             // Формируем динамическую ссылку для Quickpay
@@ -545,7 +653,9 @@
                 `&quickpay-form=shop` + // Тип формы для коммерческой оплаты
                 `&targets=${encodeURIComponent(targets)}` +
                 `&sum=${price}` +
-                `&comment=${encodeURIComponent(comment)}`; // Используем comment для бэкенда
+                `&comment=${encodeURIComponent(comment)}` + // Используем comment для бэкенда
+                `&paymentType=AC`; // Принудительно показываем оплату картой (AC)
+                
 
             showModal('Подтверждение оплаты', `Вы будете перенаправлены на YooMoney для оплаты <strong>${price} ₽</strong> за ${months} месяцев. 
                 <br><br><strong>Ваш Telegram ID (${telegramId}) автоматически добавлен в комментарий к платежу.</strong>
@@ -606,7 +716,15 @@
 
         // Функция копирования VLESS-ссылки
         function copyVlessLink() {
-            const link = document.getElementById('vless-link-display').textContent;
+            const linkBox = document.getElementById('vless-link-display');
+            // Проверяем, что отображается не инструкция, а реальная ссылка
+            if (linkBox.textContent.includes('Ключ появится здесь')) {
+                showToast('Сначала активируйте подписку!');
+                return;
+            }
+            
+            // Извлекаем только саму ссылку, убирая тег "КЛЮЧ:"
+            const link = linkBox.textContent.replace('КЛЮЧ:', '').trim(); 
             
             // Использование document.execCommand('copy') для совместимости с iframe
             const textarea = document.createElement('textarea');
@@ -633,16 +751,14 @@
             const existingModal = document.getElementById('custom-modal-overlay');
             if (existingModal) existingModal.remove();
 
-            // Используем цвета из темы Telegram
-            const bgColor = tg ? tg.themeParams.secondary_bg_color : '#1a1a2e';
-            const textColor = tg ? tg.themeParams.text_color : 'var(--text-dark)';
-            const accentColor = tg ? tg.themeParams.link_color : 'var(--accent-color)';
-            const buttonColor = tg ? tg.themeParams.button_color : 'var(--accent-color)';
-            const buttonTextColor = tg ? tg.themeParams.button_text_color : '#000';
+            // Используем цвета из темы Telegram или fallback
+            const accentColor = (tg && tg.themeParams.link_color) ? tg.themeParams.link_color : 'var(--accent-color)';
+            const buttonColor = (tg && tg.themeParams.button_color) ? tg.themeParams.button_color : 'var(--accent-color)';
+            const buttonTextColor = (tg && tg.themeParams.button_text_color) ? tg.themeParams.button_text_color : '#000';
             
             const modalHtml = `
                 <div id="custom-modal-overlay">
-                    <div id="modal-content" style="background: ${bgColor}; border: 1px solid ${accentColor}; color: ${textColor};">
+                    <div id="modal-content" style="border: 1px solid ${accentColor};">
                         <h3 style="font-size: 1.4em; margin-bottom: 15px; color: ${accentColor};">${title}</h3>
                         <p style="margin-bottom: 25px; line-height: 1.5; font-size: 0.95em;">${message}</p>
                         <button id="modal-action-btn" style="background: ${buttonColor}; color: ${buttonTextColor};">
