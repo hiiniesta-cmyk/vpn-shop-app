@@ -6,7 +6,7 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    <title>Shinobu Proxy - Безопасный Proxy для России v2.3</title>
+    <title>Shinobu Proxy - Безопасный Proxy для России v2.4</title>
     <script src="https://telegram.org/js/telegram-web-app.js?v=2.2"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 
@@ -135,6 +135,7 @@
             transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); position: relative; overflow: hidden;
             display: flex; align-items: center; justify-content: center; gap: 8px; text-decoration: none;
             box-shadow: 0 0 5px rgba(0, 212, 255, 0.3);
+            text-align: center; /* Добавлено для центрирования текста в кнопках */
         }
         .btn:hover { 
             background: linear-gradient(45deg, rgba(0, 212, 255, 0.3), rgba(123, 44, 191, 0.3));
@@ -201,7 +202,7 @@
     </style>
 </head>
 <body>
-    <div class="version-tag">v2.3</div>
+    <div class="version-tag">v2.4</div>
     <button class="theme-toggle" onclick="toggleTheme()" aria-label="Переключить тему">
         <span class="theme-icon">Moon</span>
     </button>
@@ -291,8 +292,9 @@
         const BOT_USERNAME = 'ShinobuProxyBot';
         const TRIAL_DAYS = 3;
         
-        // BASE API URL - теперь берется из LocalStorage
-        let API_BASE = localStorage.getItem('shinobu_api_base') || (window.location.origin + '/api');
+        // BASE API URL - !!! ИЗМЕНЕНО ДЛЯ ЛОКАЛЬНОГО ТЕСТИРОВАНИЯ FLASK !!!
+        // ПРИ РАЗВЕРТЫВАНИИ НА СЕРВЕРЕ ЗАМЕНИТЕ НА ВАШ ПУБЛИЧНЫЙ HTTPS-АДРЕС
+        let API_BASE = localStorage.getItem('shinobu_api_base') || 'http://127.0.0.1:5000/api';
 
         const DOWNLOAD_LINKS = {
             android: { name: 'Android', icon: 'fab fa-android', url: 'https://github.com/2dust/v2rayNG/releases/download/1.10.28/v2rayNG_1.10.28-fdroid_universal.apk' },
@@ -321,10 +323,12 @@
             doc: () => ({}),
             getDoc: async () => {
                 try {
+                    // Используем userId для локального хранения
                     const res = await fetch(`${API_BASE}/user/${userId}`);
                     if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
                     const data = await res.json();
-                    return { exists: () => !!data.telegramId, data: () => data };
+                    // Используем 'user_id' вместо 'telegramId' для проверки существования, т.к. API возвращает default
+                    return { exists: () => !!data.vless_key || !!data.subscription_expiry, data: () => data };
                 } catch (error) {
                     console.error("Ошибка при получении данных от API:", error);
                     return { exists: () => false, data: () => ({}) };
@@ -332,10 +336,13 @@
             },
             setDoc: async (ref, data, { merge } = {}) => {
                 try {
+                    // Для активации пробного периода используем POST с action
+                    const payload = data.trial_used && data.status === 'active' ? { action: 'activate_trial' } : { ...data, telegramId };
+
                     const res = await fetch(`${API_BASE}/user/${userId}`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ ...data, telegramId })
+                        body: JSON.stringify(payload)
                     });
                     if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
                     window.dispatchEvent(new Event('db-update'));
@@ -346,13 +353,26 @@
             },
             // Эмуляция onSnapshot через Polling
             onSnapshot: (ref, callback) => {
-                const poll = setInterval(async () => {
-                    const res = await fetch(`${API_BASE}/user/${userId}`);
-                    // Тут мы предполагаем, что если telegramId есть, значит пользователь существует
-                    const data = await res.json().catch(() => ({})); 
-                    callback({ exists: () => !!data.telegramId, data: () => data });
-                }, 5000); // Опрос каждые 5 секунд
-                return () => clearInterval(poll); // Функция для остановки опроса
+                let isCancelled = false;
+                const poll = async () => {
+                    if (isCancelled) return;
+                    // Используем getDoc для получения данных
+                    const docSnap = await window.firestore.getDoc();
+                    callback(docSnap);
+                    if (!isCancelled) setTimeout(poll, 5000); // Опрос каждые 5 секунд
+                };
+                poll(); // Запуск первого опроса немедленно
+                
+                // Добавляем слушатель для мгновенного обновления после setDoc
+                const updateListener = () => {
+                    if (!isCancelled) poll(); // Вызываем немедленно
+                };
+                window.addEventListener('db-update', updateListener);
+
+                return () => { 
+                    isCancelled = true;
+                    window.removeEventListener('db-update', updateListener);
+                }; // Функция для остановки опроса
             },
             serverTimestamp: () => Date.now()
         };
@@ -374,30 +394,35 @@
             }
             
             // Определение ID пользователя
+            // Используем localStorage для DEV-режима и fallback, иначе бы использовали firebase auth UID
             userId = localStorage.getItem('shinobu_user_id') || 'local_' + Math.random().toString(36).substr(2, 9);
-            localStorage.setItem('shinobu_user_id', userId);
-            document.getElementById('firebase-user-id').textContent = userId;
+            // Если в Telegram, используем его ID как основной
             telegramId = tg?.initDataUnsafe?.user?.id || 'DEV_USER';
+            
+            // Для локального теста, если это DEV_USER, сохраняем локальный ID
+            if (telegramId === 'DEV_USER') {
+                localStorage.setItem('shinobu_user_id', userId);
+            } else {
+                // Если мы в Telegram, используем его ID для API, но отображаем Telegram ID
+                userId = String(telegramId);
+            }
+
+            document.getElementById('firebase-user-id').textContent = userId;
             document.getElementById('telegram-id-display').textContent = telegramId;
             
-            // Установка API URL в поле ввода (УДАЛЕНО)
-            // document.getElementById('api-base-url').value = API_BASE;
-
             // Рендеринг UI
             renderTariffs(); 
             renderDownloadButtons(); 
             renderInstructionButtons(); 
             generateReferralLink();
             window.startSubscriptionListener();
+            
+            // Уведомление о локальном API для DEV_USER
+            if (telegramId === 'DEV_USER') {
+                showToast(`API: ${API_BASE}. Не забудьте запустить python3 app.py`, 6000);
+            }
         });
         
-        // Функция для обновления API URL (УДАЛЕНО)
-        // window.updateApiBaseUrl = (url) => {
-        //     localStorage.setItem('shinobu_api_base', url);
-        //     API_BASE = url;
-        //     showToast('URL API обновлен. Перезагрузите страницу для применения.', 5000);
-        // }
-
         function toggleTheme() {
             const body = document.body;
             const icon = document.querySelector('.theme-icon');
@@ -413,37 +438,42 @@
             const trialCard = document.getElementById('trial-card-status');
 
             const handleSnapshot = (docSnap) => {
-                if (!docSnap.exists()) {
+                const data = docSnap.data();
+                
+                // Проверяем, есть ли подписка/ключ
+                const hasActiveSubscription = data.vless_key && data.subscription_expiry && Number(data.subscription_expiry) * 1000 > Date.now();
+                const hasUsedTrial = data.trial_used;
+
+                if (!data.vless_key) {
+                    // Состояние: Нет ключа / Сброшено
                     indicator.textContent = 'Неактивна'; indicator.className = 'status-indicator status-inactive';
                     info.innerHTML = `<p>Дата истечения: <span id="expiry-date">Нет подписки</span></p><p>Пользователь: ${userId}</p>`;
                     vlessDisplay.innerHTML = '<span style="color: #7b2cbf;">Ключ появится после активации</span>';
-                    trialCard.innerHTML = `<button class="btn btn-primary" onclick="startTrial()"><i class="fas fa-gift"></i> Активировать ${TRIAL_DAYS} дня бесплатно</button>`;
-                    window.updateReferralUI(0);
-                    return;
-                }
-
-                const data = docSnap.data();
-                
-                // Проверяем, есть ли поле vless_link, иначе используем заглушку
-                if (data.vless_link) {
-                    vlessDisplay.innerHTML = `<strong>КЛЮЧ:</strong> ${data.vless_link}`;
-                } else {
-                     vlessDisplay.innerHTML = '<span style="color: #7b2cbf;">Ключ генерируется...</span>';
-                }
-
-                if (data.status === 'active' && data.expiry_date) {
-                    // Используем number, т.к. вы используете Date.now() в заглушке
-                    const date = new Date(Number(data.expiry_date)); 
+                } else if (hasActiveSubscription) {
+                    // Состояние: Активна
+                    const date = new Date(Number(data.subscription_expiry) * 1000); // API возвращает секунды
                     const formatted = date.toLocaleDateString('ru-RU', { year: 'numeric', month: 'long', day: 'numeric' });
                     indicator.textContent = 'Активна'; indicator.className = 'status-indicator status-active';
                     info.innerHTML = `<p>Дата истечения: <span id="expiry-date">${formatted}</span></p><p>Пользователь: ${userId}</p>`;
+                    vlessDisplay.innerHTML = `<strong>КЛЮЧ:</strong> ${data.vless_key}`;
                 } else {
-                    indicator.textContent = 'Неактивна'; indicator.className = 'status-indicator status-inactive';
-                    info.innerHTML = `<p>Дата истечения: <span id="expiry-date">Нет подписки</span></p><p>Пользователь: ${userId}</p>`;
+                    // Состояние: Истекла
+                    indicator.textContent = 'Истекла'; indicator.className = 'status-indicator status-inactive';
+                    info.innerHTML = `<p>Дата истечения: <span id="expiry-date">Продлите подписку</span></p><p>Пользователь: ${userId}</p>`;
+                    vlessDisplay.innerHTML = `<strong>КЛЮЧ:</strong> ${data.vless_key}`; // Ключ остается, но не работает
                 }
 
-                if (data.trial_used) {
-                    trialCard.innerHTML = `<p style="color: #38a169; font-weight: bold;"><i class="fas fa-check-circle"></i> Пробный период использован.</p>`;
+                // Логика карточки пробного периода
+                if (hasUsedTrial) {
+                    trialCard.innerHTML = `
+                        <p style="color: #38a169; font-weight: bold; margin-bottom: 15px;"><i class="fas fa-check-circle"></i> Пробный период использован.</p>
+                        <!-- Кнопка сброса (только для тестирования!) -->
+                        ${telegramId === 'DEV_USER' ? `
+                            <button class="btn" style="background: #9b2c32; color: white; border-color: #e53e3e; margin-top: 10px;" onclick="resetUserData()">
+                                <i class="fas fa-undo"></i> Сбросить данные (DEV)
+                            </button>
+                        ` : ''}
+                    `;
                 } else {
                     trialCard.innerHTML = `<button class="btn btn-primary" onclick="startTrial()"><i class="fas fa-gift"></i> Активировать ${TRIAL_DAYS} дня бесплатно</button>`;
                 }
@@ -460,20 +490,35 @@
         };
 
         window.startTrial = async () => {
-            const expiry = new Date();
-            expiry.setDate(expiry.getDate() + TRIAL_DAYS);
-            const uuid = crypto.randomUUID().substring(0, 8);
-            const vless = `vless://${uuid}@trial.shinobu.net:443?security=tls#Shinobu_Trial_${telegramId}`;
-
+            // Используем POST с action: 'activate_trial' для API
             await window.firestore.setDoc(null, {
                 status: 'active',
-                expiry_date: expiry.getTime(),
-                vless_link: vless,
                 trial_used: true,
-                invited_count: 0
+                // expiry_date и vless_link будут установлены бэкендом
             }, { merge: true });
 
             showToast('Пробный период активирован! Ваш ключ генерируется.');
+        };
+
+        window.resetUserData = async () => {
+            if (telegramId !== 'DEV_USER') return showToast('Сброс доступен только в DEV-режиме', 3000);
+            
+            showToast('Попытка сброса данных...', 3000);
+
+            try {
+                const res = await fetch(`${API_BASE}/user/${userId}`, {
+                    method: 'DELETE',
+                });
+                if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+                
+                showToast('Данные успешно сброшены!', 3000);
+                // Принудительно вызываем обновление, чтобы не ждать polling
+                window.dispatchEvent(new Event('db-update')); 
+
+            } catch (error) {
+                console.error("Ошибка при сбросе данных:", error);
+                showToast('Ошибка при сбросе данных. Смотрите консоль.', 5000);
+            }
         };
 
         window.generateReferralLink = () => {
