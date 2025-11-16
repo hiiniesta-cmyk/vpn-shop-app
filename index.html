@@ -389,10 +389,12 @@
 
         // КОНФИГУРАЦИЯ СЕРВИСА
         // ========================================================================
-        // ✅ ВАШ РЕАЛЬНЫЙ НОМЕР КОШЕЛЬКА YOOMONEY (15 цифр, начинается с 4100)
+        // ✅ ВАШ РЕАЛЬНЫЙ НОМЕР КОШЕЛЬКА YOOMONEY
         const YOOMONEY_RECIPIENT_ID = '4100119271147598'; 
         // ========================================================================
-        const YOOMONEY_BASE_URL = `https://yoomoney.ru/to/${YOOMONEY_RECIPIENT_ID}`;
+        
+        // НОВАЯ БАЗОВАЯ ССЫЛКА ДЛЯ QUICKPAY
+        const YOOMONEY_QUICKPAY_URL = 'https://yoomoney.ru/quickpay/confirm.xml';
         const APP_NAME = 'Shinobu Proxy';
 
         const DOWNLOAD_LINKS = {
@@ -532,13 +534,18 @@
                 return;
             }
 
-            // Комментарий для привязки оплаты к пользователю
+            // Комментарий для привязки оплаты к пользователю (отображается в выписке)
             const comment = `Оплата_${months}мес_TGID_${telegramId}_${APP_NAME}`;
-            
-            // Формируем динамическую ссылку для перевода
-            // Note: The `paymentType=50` parameter is often used to ensure the comment field is editable/included,
-            // but for the basic to link, we rely on the comment URL parameter.
-            const yooMoneyUrl = `${YOOMONEY_BASE_URL}?amount=${price}&comment=${encodeURIComponent(comment)}`;
+            // Целевое описание платежа (отображается пользователю на форме)
+            const targets = `Оплата подписки Shinobu Proxy на ${months} мес.`;
+
+            // Формируем динамическую ссылку для Quickpay
+            const yooMoneyUrl = `${YOOMONEY_QUICKPAY_URL}?` +
+                `receiver=${YOOMONEY_RECIPIENT_ID}` +
+                `&quickpay-form=shop` + // Тип формы для коммерческой оплаты
+                `&targets=${encodeURIComponent(targets)}` +
+                `&sum=${price}` +
+                `&comment=${encodeURIComponent(comment)}`; // Используем comment для бэкенда
 
             showModal('Подтверждение оплаты', `Вы будете перенаправлены на YooMoney для оплаты <strong>${price} ₽</strong> за ${months} месяцев. 
                 <br><br><strong>Ваш Telegram ID (${telegramId}) автоматически добавлен в комментарий к платежу.</strong>
