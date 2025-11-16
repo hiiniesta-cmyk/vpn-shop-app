@@ -15,7 +15,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, onSnapshot, setDoc, serverTimestamp, getDoc, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, doc, onSnapshot, setDoc, serverTimestamp, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         
         // ВАЖНО: Установка уровня логирования для отладки Firestore
         setLogLevel('debug');
@@ -48,10 +48,12 @@
                 
                 console.log("Firebase initialized. User ID:", userId);
                 
-                // Передаем экземпляры в глобальный скоуп для доступа из <script>
+                // --- ИСПРАВЛЕНИЕ: Передаем экземпляры и функции в глобальный скоуп ---
                 window.db = db;
                 window.auth = auth;
                 window.firebaseUserId = userId; 
+                // Экспортируем нужные функции Firestore для доступа из основного скрипта
+                window.firestore = { doc, onSnapshot, setDoc, serverTimestamp, getDoc };
 
                 // Начинаем прослушивание статуса подписки
                 window.startSubscriptionListener();
@@ -67,14 +69,14 @@
         // --- Mock-функция для демонстрации обновления подписки ---
         // В реальном приложении это должен делать ваш БЭКЕНД после подтверждения оплаты.
         window.mockUpdateSubscription = async function(telegramId, months) {
-            if (!window.db || !telegramId || !window.firebaseUserId) return;
+            if (!window.db || !telegramId || !window.firebaseUserId || !window.firestore) return;
 
             // Используем приватный путь: /artifacts/{appId}/users/{userId}/subscription/status_doc
-            const subscriptionRef = doc(window.db, `artifacts/${window.appId}/users/${window.firebaseUserId}/subscription/status_doc`);
+            const subscriptionRef = window.firestore.doc(window.db, `artifacts/${window.appId}/users/${window.firebaseUserId}/subscription/status_doc`);
             
             try {
                 // Получаем текущее состояние
-                const docSnap = await getDoc(subscriptionRef);
+                const docSnap = await window.firestore.getDoc(subscriptionRef);
                 let expiryDate = new Date();
                 
                 // Если подписка активна, продлеваем с текущей даты истечения
@@ -98,10 +100,10 @@
                     status: 'active',
                     expiry_date: expiryDate, // Firestore автоматически преобразует Date в Timestamp
                     vless_link: mockVlessLink,
-                    last_updated: serverTimestamp()
+                    last_updated: window.firestore.serverTimestamp()
                 };
 
-                await setDoc(subscriptionRef, subscriptionData, { merge: true });
+                await window.firestore.setDoc(subscriptionRef, subscriptionData, { merge: true });
                 console.log(`Mock subscription updated for ${telegramId} for ${months} months.`);
             } catch (error) {
                 console.error("Ошибка в mockUpdateSubscription:", error);
@@ -497,12 +499,16 @@
 
             if (isLight) {
                 body.classList.add('light-theme');
-                sunIcon.style.display = 'block';
-                moonIcon.style.display = 'none';
+                if(sunIcon && moonIcon) {
+                    sunIcon.style.display = 'block';
+                    moonIcon.style.display = 'none';
+                }
             } else {
                 body.classList.remove('light-theme');
-                sunIcon.style.display = 'none';
-                moonIcon.style.display = 'block';
+                 if(sunIcon && moonIcon) {
+                    sunIcon.style.display = 'none';
+                    moonIcon.style.display = 'block';
+                }
             }
             // Сохраняем выбор темы в локальном хранилище
             localStorage.setItem('theme', isLight ? 'light' : 'dark');
@@ -511,11 +517,14 @@
         // Обработчик переключения темы
         document.addEventListener('DOMContentLoaded', () => {
              const themeToggle = document.getElementById('theme-toggle');
-             themeToggle.addEventListener('click', () => {
-                // Определяем текущую тему и переключаем
-                const isLight = document.body.classList.contains('light-theme');
-                applyTheme(!isLight);
-             });
+             // Дополнительная проверка на null/undefined, чтобы устранить "неработоспособность"
+             if (themeToggle) {
+                 themeToggle.addEventListener('click', () => {
+                    // Определяем текущую тему и переключаем
+                    const isLight = document.body.classList.contains('light-theme');
+                    applyTheme(!isLight);
+                 });
+             }
         });
 
         window.addEventListener('load', function() {
@@ -568,17 +577,17 @@
             document.getElementById('firebase-user-id').textContent = userId;
             
             // Проверка на корректность данных
-            if (!window.db || !userId) {
+            if (!window.db || !userId || !window.firestore) { // Добавлена проверка на window.firestore
                 document.getElementById('status-info').innerHTML = 
                     `<span style="color: #ef4444;">❌ Ошибка: Невозможно получить статус. (TG ID: ${telegramId})</span>`;
                 return;
             }
 
             // Создаем путь к документу, привязанному к Firebase ID
-            const subscriptionRef = doc(window.db, `artifacts/${window.appId}/users/${userId}/subscription/status_doc`);
+            const subscriptionRef = window.firestore.doc(window.db, `artifacts/${window.appId}/users/${userId}/subscription/status_doc`);
             
             // onSnapshot для отслеживания изменений в реальном времени
-            onSnapshot(subscriptionRef, (docSnap) => {
+            window.firestore.onSnapshot(subscriptionRef, (docSnap) => {
                 const indicator = document.getElementById('status-indicator');
                 const info = document.getElementById('status-info');
                 const vlessLinkDisplay = document.getElementById('vless-link-display');
