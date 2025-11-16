@@ -90,9 +90,22 @@
             width: 80px;
             height: 80px;
             border-radius: 50%;
-            object-fit: cover;
+            background: #7b2cbf; /* Надежный цвет фона */
+            color: white; /* Цвет иконки/текста */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 3em; /* Размер иконки */
             border: 4px solid #00d4ff;
             box-shadow: 0 0 15px rgba(0, 212, 255, 0.5);
+            /* Стиль для инициалов (если они отображаются) */
+            font-weight: bold;
+            font-size: 2em; 
+            line-height: 1;
+        }
+        .user-avatar i {
+            /* Убедимся, что иконка четко центрирована */
+            line-height: 1;
         }
         .user-details {
             text-align: left;
@@ -107,8 +120,12 @@
             opacity: 0.8;
         }
         body.light-theme .user-avatar {
+            background: #007bff;
             border-color: #007bff;
             box-shadow: 0 0 10px rgba(0, 123, 255, 0.3);
+        }
+        body.light-theme .user-details h3 {
+            color: #007bff;
         }
         /* КОНЕЦ НОВЫХ СТИЛЕЙ */
 
@@ -294,7 +311,9 @@
         </header>
 
         <div class="user-info-header">
-            <img src="https://via.placeholder.com/80/7b2cbf/ffffff?text=TG" alt="Аватар пользователя" class="user-avatar" id="user-avatar-img">
+            <div class="user-avatar" id="user-avatar-placeholder">
+                <i class="fas fa-user"></i>
+            </div>
             <div class="user-details">
                 <h3 id="user-full-name">Пользователь</h3>
                 <p>ID: <span id="telegram-id-display">Загрузка...</span></p>
@@ -516,7 +535,7 @@
                 userId = String(telegramId);
             }
 
-            // НОВОЕ: Чтение данных пользователя из WebApp и заполнение шапки
+            // Чтение данных пользователя из WebApp и заполнение шапки
             let userFirstName = 'Гость';
             let userLastName = '';
             let userUsername = '';
@@ -526,6 +545,16 @@
                 userFirstName = user.first_name || 'Пользователь';
                 userLastName = user.last_name || '';
                 userUsername = user.username ? `@${user.username}` : 'Нет';
+                
+                // Отображение инициалов вместо иконки (для лучшей персонализации)
+                const initials = (userFirstName[0] + (userLastName ? userLastName[0] : '')).toUpperCase().trim();
+                const avatarPlaceholder = document.getElementById('user-avatar-placeholder');
+                
+                if (initials) {
+                    avatarPlaceholder.textContent = initials;
+                } else {
+                    avatarPlaceholder.innerHTML = '<i class="fas fa-user"></i>';
+                }
             }
 
             document.getElementById('firebase-user-id').textContent = userId;
