@@ -3,17 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Отключение кеширования для TWA -->
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
     <title>Shinobu Proxy - Тарифы и Подключение</title>
+    <!-- Подключение Telegram Web App SDK -->
     <script src="https://telegram.org/js/telegram-web-app.js?v=2.2"></script>
+    
     <!-- Firebase Imports for Firestore -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, onSnapshot, setDoc, serverTimestamp, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-        import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, doc, onSnapshot, setDoc, serverTimestamp, getDoc, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         
         // ВАЖНО: Установка уровня логирования для отладки Firestore
         setLogLevel('debug');
@@ -34,13 +36,14 @@
                 db = getFirestore(app);
                 auth = getAuth(app);
                 
+                // Аутентификация: сначала пытаемся войти через custom token, иначе анонимно
                 if (initialAuthToken) {
                     await signInWithCustomToken(auth, initialAuthToken);
                 } else {
                     await signInAnonymously(auth);
                 }
                 
-                // Получаем ID пользователя после аутентификации
+                // Получаем ID пользователя (Firebase UID)
                 userId = auth.currentUser?.uid || crypto.randomUUID();
                 
                 console.log("Firebase initialized. User ID:", userId);
@@ -57,60 +60,71 @@
                 console.error("Ошибка инициализации Firebase:", error);
                 // Показываем ошибку пользователю
                 document.getElementById('status-info').innerHTML = 
-                    `<span class="text-red-500">❌ Ошибка: Не удалось подключиться к базе данных. ${error.message}</span>`;
+                    `<span style="color: #ef4444;">❌ Ошибка: Не удалось подключиться к базе данных. ${error.message}</span>`;
             }
         }
 
+        // --- Mock-функция для демонстрации обновления подписки ---
+        // В реальном приложении это должен делать ваш БЭКЕНД после подтверждения оплаты.
+        window.mockUpdateSubscription = async function(telegramId, months) {
+            if (!window.db || !telegramId || !window.firebaseUserId) return;
+
+            // Используем приватный путь: /artifacts/{appId}/users/{userId}/subscription/status_doc
+            const subscriptionRef = doc(window.db, `artifacts/${window.appId}/users/${window.firebaseUserId}/subscription/status_doc`);
+            
+            try {
+                // Получаем текущее состояние
+                const docSnap = await getDoc(subscriptionRef);
+                let expiryDate = new Date();
+                
+                // Если подписка активна, продлеваем с текущей даты истечения
+                if (docSnap.exists() && docSnap.data().status === 'active') {
+                    const currentExpiry = docSnap.data().expiry_date;
+                    if (currentExpiry && currentExpiry.toDate() > expiryDate) {
+                        expiryDate = currentExpiry.toDate();
+                    }
+                }
+                
+                // Увеличиваем дату истечения на N месяцев
+                expiryDate.setMonth(expiryDate.getMonth() + months);
+                
+                // Генерация VLESS-ссылки (это должно быть реализовано на вашем БЭКЕНДЕ)
+                const uuid = crypto.randomUUID();
+                const mockVlessLink = `vless://${uuid}@server.shinobu.net:443?security=tls&fp=chrome&sni=server.shinobu.net#Shinobu_Proxy_${months}m_TG${telegramId}`;
+
+                const subscriptionData = {
+                    telegram_id: telegramId,
+                    status: 'active',
+                    expiry_date: expiryDate, // Firestore автоматически преобразует Date в Timestamp
+                    vless_link: mockVlessLink,
+                    last_updated: serverTimestamp()
+                };
+
+                await setDoc(subscriptionRef, subscriptionData, { merge: true });
+                console.log(`Mock subscription updated for ${telegramId} for ${months} months.`);
+            } catch (error) {
+                console.error("Ошибка в mockUpdateSubscription:", error);
+                window.showModal('Ошибка Firebase', `Не удалось обновить подписку в базе. ${error.message}`, 'ОК');
+            }
+        }
         // Запускаем инициализацию
         initializeFirebase();
 
-        // Функции для имитации создания/обновления подписки
-        window.mockUpdateSubscription = async function(telegramId, months) {
-            if (!db || !telegramId) return;
-
-            const subscriptionRef = doc(db, `artifacts/${appId}/users/${userId}/subscription/status_doc`);
-            
-            // Получаем текущее состояние
-            const docSnap = await getDoc(subscriptionRef);
-            let expiryDate = new Date();
-            if (docSnap.exists() && docSnap.data().status === 'active') {
-                // Если активна, продлеваем с текущей даты истечения
-                expiryDate = docSnap.data().expiry_date.toDate();
-            }
-            
-            // Увеличиваем дату истечения на N месяцев
-            expiryDate.setMonth(expiryDate.getMonth() + months);
-            
-            const mockVlessLink = `vless://uuid-for-tg-${telegramId}-m${months}@server.shinobu.net:443?security=tls&fp=chrome&sni=server.shinobu.net#Shinobu_Proxy_${months}m`;
-
-            const subscriptionData = {
-                telegram_id: telegramId,
-                status: 'active',
-                expiry_date: expiryDate,
-                vless_link: mockVlessLink,
-                last_updated: serverTimestamp()
-            };
-
-            await setDoc(subscriptionRef, subscriptionData, { merge: true });
-            console.log(`Mock subscription updated for ${telegramId} for ${months} months.`);
-            // При реальной интеграции это должен делать ваш бэкенд после подтверждения оплаты
-            
-            // Обновляем UI сразу (onSnapshot сделает это автоматически)
-        }
-
     </script>
     
+    <!-- Стили с использованием Tailwind-подобных принципов -->
     <style>
         /* Общие стили */
         * { margin: 0; padding: 0; box-sizing: border-box; }
         :root {
+            /* Переменные для темной и светлой темы */
             --bg-dark: #0d0d0d;
             --bg-light: #f5f7fa;
             --text-dark: #e0e0e0;
             --text-light: #2d3748;
-            --accent-color: #00d4ff;
+            --accent-color: #00d4ff; /* Голубой */
             --accent-dark: #00a8cc;
-            --secondary-color: #7b2cbf;
+            --secondary-color: #7b2cbf; /* Фиолетовый */
             --card-dark: rgba(255, 255, 255, 0.03);
             --card-light: rgba(255, 255, 255, 0.9);
             --border-dark: rgba(0, 212, 255, 0.3);
@@ -123,12 +137,21 @@
             color: var(--text-dark);
             min-height: 100vh;
             transition: background 0.5s ease, color 0.5s ease;
+            position: relative;
         }
 
+        /* Адаптация под светлую тему (если Telegram ее использует) */
         body.light-theme {
             background: var(--bg-light);
             color: var(--text-light);
         }
+        body.light-theme .tagline { color: var(--text-light); }
+        body.light-theme .section-title { color: #007bff; border-bottom-color: var(--border-light); }
+        body.light-theme .card { background: var(--card-light); border-color: var(--border-light); box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08); }
+        body.light-theme .btn { background: rgba(0, 123, 255, 0.1); border-color: #007bff; color: #007bff; }
+        body.light-theme .btn:hover { background: rgba(0, 123, 255, 0.25); box-shadow: 0 0 15px rgba(0, 123, 255, 0.4); }
+        body.light-theme .vless-link-box { background: #e2e8f0; border-color: #3182ce; }
+
 
         .container {
             max-width: 800px;
@@ -139,11 +162,7 @@
         }
 
         /* Заголовок */
-        header {
-            text-align: center;
-            padding: 30px 0 20px;
-        }
-
+        header { text-align: center; padding: 30px 0 20px; }
         .logo {
             font-size: 2.2em;
             font-weight: bold;
@@ -153,16 +172,7 @@
             -webkit-text-fill-color: transparent;
             filter: drop-shadow(0 0 10px rgba(0, 212, 255, 0.3));
         }
-
-        .tagline {
-            font-size: 1em;
-            color: #b0b0b0;
-            margin-top: 5px;
-        }
-
-        body.light-theme .tagline {
-            color: var(--text-light);
-        }
+        .tagline { font-size: 1em; color: #b0b0b0; margin-top: 5px; }
 
         /* Общая секция */
         .section-title {
@@ -172,11 +182,6 @@
             border-bottom: 2px solid var(--border-dark);
             padding-bottom: 10px;
             text-align: center;
-        }
-
-        body.light-theme .section-title {
-            color: #007bff;
-            border-bottom-color: var(--border-light);
         }
 
         /* Карточка */
@@ -191,21 +196,12 @@
             transition: all 0.3s ease;
         }
 
-        body.light-theme .card {
-            background: var(--card-light);
-            border-color: var(--border-light);
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
-        }
-
-        /* Кнопки и сетки */
-        .grid {
-            display: grid;
-            gap: 15px;
-        }
-
+        /* Сетки */
+        .grid { display: grid; gap: 15px; }
         .grid-2 { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
         .grid-4 { grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); }
 
+        /* Кнопки */
         .btn {
             padding: 12px 20px;
             background: rgba(0, 212, 255, 0.1);
@@ -222,12 +218,7 @@
             align-items: center;
             justify-content: center;
             line-height: 1.2;
-        }
-
-        body.light-theme .btn {
-            background: rgba(0, 123, 255, 0.1);
-            border-color: #007bff;
-            color: #007bff;
+            flex-direction: column;
         }
 
         .btn:hover {
@@ -236,45 +227,21 @@
             transform: translateY(-2px);
         }
 
-        body.light-theme .btn:hover {
-            background: rgba(0, 123, 255, 0.25);
-            box-shadow: 0 0 15px rgba(0, 123, 255, 0.4);
-        }
+        .btn-price { font-weight: bold; display: block; margin-top: 5px; font-size: 1.1em; }
+        .btn-icon { font-size: 1.5em; margin-bottom: 5px; }
 
-        .btn-price {
-            font-weight: bold;
-            display: block;
-            margin-top: 5px;
-            font-size: 1.1em;
-        }
-
-        .tariff-card:nth-child(4) .btn { /* Best value (6 months) */
+        /* Акцентный тариф (6 месяцев) */
+        .tariff-card:nth-child(4) .btn { 
             background: linear-gradient(90deg, #7b2cbf, var(--accent-color));
             color: #fff;
             border-color: var(--secondary-color);
             box-shadow: 0 0 20px rgba(123, 44, 191, 0.5);
         }
-
-        .tariff-card:nth-child(4) .btn:hover {
-             background: linear-gradient(90deg, #6a24aa, var(--accent-dark));
-        }
+        .tariff-card:nth-child(4) .btn:hover { background: linear-gradient(90deg, #6a24aa, var(--accent-dark)); }
         
         /* Статус подписки */
-        .status-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 10px;
-        }
-
-        .status-indicator {
-            padding: 5px 15px;
-            border-radius: 8px;
-            font-weight: bold;
-            font-size: 0.9em;
-            transition: background 0.5s;
-        }
-
+        .status-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        .status-indicator { padding: 5px 15px; border-radius: 8px; font-weight: bold; font-size: 0.9em; transition: background 0.5s; }
         .status-inactive { background-color: #e53e3e; color: white; }
         .status-active { background-color: #38a169; color: white; }
         .status-loading { background-color: #3182ce; color: white; }
@@ -289,19 +256,7 @@
             margin-top: 15px;
             border: 1px dashed var(--accent-color);
         }
-        
-        body.light-theme .vless-link-box {
-            background: #e2e8f0;
-            border-color: #3182ce;
-        }
-
-        .vless-container {
-            display: flex;
-            gap: 10px;
-            align-items: stretch;
-            margin-top: 15px;
-        }
-
+        .vless-container { display: flex; gap: 10px; align-items: stretch; margin-top: 15px; }
         .vless-copy-btn {
             flex-shrink: 0;
             padding: 10px 15px;
@@ -309,13 +264,11 @@
             background: #2b6cb0;
             border-color: #2b6cb0;
             color: white;
+            justify-content: center;
         }
-        
-        .vless-copy-btn:hover {
-            background: #1e4e7c;
-        }
+        .vless-copy-btn:hover { background: #1e4e7c; }
 
-        /* Анимация и орбы (сохраняем для стиля) */
+        /* Фон и анимация */
         .grid-background {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background-image: linear-gradient(rgba(0, 212, 255, 0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(0, 212, 255, 0.03) 1px, transparent 1px);
@@ -367,7 +320,7 @@
                     <p>Пользователь (Firebase ID): <span id="firebase-user-id">...</span></p>
                 </div>
 
-                <!-- Блок с VLESS-ссылкой -->
+                <!-- Блок с VLESS-ссылкой (появляется при активной подписке) -->
                 <div id="vless-container" class="vless-container" style="display: none;">
                     <div class="vless-link-box" id="vless-link-display" style="flex-grow: 1;">
                         VLESS-ссылка будет здесь.
@@ -385,9 +338,11 @@
             <div class="grid grid-2" id="tariff-grid">
                 <!-- Тарифы будут добавлены JS -->
             </div>
-            <p style="text-align: center; font-size: 0.9em; margin-top: 15px; opacity: 0.8;">
-                ⚠️ Оплата через YooMoney. Для активации подписки необходимо дождаться проверки платежа ботом.
-            </p>
+            <div class="card" style="text-align: center; font-size: 0.9em; margin-top: 15px; opacity: 0.9; border: 1px dashed #7b2cbf;">
+                 <p><strong>⚠️ ВНИМАНИЕ:</strong> После оплаты через YooMoney, пожалуйста, вернитесь в чат с ботом. 
+                 <br>Активация подписки произойдет автоматически после подтверждения платежа вашим ботом (до 1-5 минут).
+                 <br>Ваш Telegram ID используется в комментарии для привязки покупки.</p>
+            </div>
         </section>
 
         <!-- 3. Подключение и Инструкции -->
@@ -395,50 +350,68 @@
             <h2 class="section-title">📱 Подключение и Инструкции</h2>
 
             <!-- Скачивание приложений -->
-            <h3 style="font-size: 1.3em; margin-bottom: 10px;">📥 Скачать приложение</h3>
+            <h3 style="font-size: 1.3em; margin-bottom: 10px; text-align: center;">📥 Скачать приложение</h3>
             <div class="grid grid-4" id="download-grid">
                 <!-- Кнопки скачивания будут добавлены JS -->
             </div>
 
             <!-- Инструкции -->
-            <h3 style="font-size: 1.3em; margin-top: 20px; margin-bottom: 10px;">📖 Инструкции по настройке</h3>
+            <h3 style="font-size: 1.3em; margin-top: 20px; margin-bottom: 10px; text-align: center;">📖 Инструкции по настройке</h3>
             <div class="grid grid-4" id="instructions-grid">
                 <!-- Кнопки инструкций будут добавлены JS -->
             </div>
         </section>
 
     </div>
+    
+    <!-- Стили модального окна для замены alert/confirm -->
+    <style>
+        #custom-modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+            background: rgba(0, 0, 0, 0.7); z-index: 10000; 
+            display: flex; justify-content: center; align-items: center;
+        }
+        #modal-content {
+            padding: 25px; border-radius: 12px; max-width: 350px; width: 90%; 
+            text-align: center; box-shadow: 0 5px 20px rgba(0, 0, 0, 0.5); 
+            transition: all 0.3s ease;
+        }
+        #modal-action-btn {
+            padding: 10px 20px; border: none; border-radius: 8px; font-weight: 600; 
+            cursor: pointer; transition: background 0.2s;
+        }
+    </style>
 
     <script>
         // Глобальные переменные для работы приложения
         let tg = null;
-        let isInTelegram = false;
         let telegramId = null; // ID пользователя Telegram
 
         // КОНФИГУРАЦИЯ СЕРВИСА
-        const YOOMONEY_RECIPIENT_ID = '4100118671234567'; // !!! ЗАМЕНИТЕ НА СВОЙ ID КОШЕЛЬКА YOOMONEY !!!
+        // ВАЖНО: ЗАМЕНИТЕ ЭТОТ ID НА СВОЙ РЕАЛЬНЫЙ НОМЕР КОШЕЛЬКА YOOMONEY
+        const YOOMONEY_RECIPIENT_ID = '4100118671234567'; 
         const YOOMONEY_BASE_URL = `https://yoomoney.ru/to/${YOOMONEY_RECIPIENT_ID}`;
         const APP_NAME = 'Shinobu Proxy';
 
         const DOWNLOAD_LINKS = {
-            android: { name: 'Android', icon: '🤖', url: 'https://github.com/2dust/v2rayNG/releases/download/1.10.23/v2rayNG_1.10.23_universal.apk' },
-            ios: { name: 'iOS', icon: '🍎', url: 'https://apps.apple.com/us/app/v2raytun/id6476628951' },
-            android_tv: { name: 'Android TV', icon: '📺', url: 'https://github.com/2dust/v2rayNG/releases/download/1.10.23/v2rayNG_1.10.23_universal.apk' },
-            windows: { name: 'Windows', icon: '🪟', url: 'https://github.com/hiddify/hiddify-app/releases/download/v2.0.5/Hiddify-Windows-Portable-x64.zip' }
+            android: { name: 'Android', icon: '🤖', url: 'https://github.com/2dust/v2rayNG/releases' },
+            ios: { name: 'iOS (V2RayTun)', icon: '🍎', url: 'https://apps.apple.com/us/app/v2raytun/id6476628951' },
+            windows: { name: 'Windows', icon: '🪟', url: 'https://github.com/hiddify/hiddify-app/releases' },
+            mac: { name: 'macOS', icon: '💻', url: 'https://github.com/hiddify/hiddify-app/releases' }
         };
 
         const INSTRUCTION_LINKS = {
             android: { name: 'Android', icon: '📖', url: 'https://telegra.ph/Kak-podklyuchitsya-k-Proxy-10-13' },
             ios: { name: 'iOS', icon: '📖', url: 'https://telegra.ph/Kak-podklyuchitsya-k-Proxy-10-13-5' },
-            android_tv: { name: 'Android TV', icon: '📖', url: 'https://telegra.ph/Kak-podklyuchitsya-k-Proxy-10-13-4' },
-            windows: { name: 'Windows', icon: '📖', url: 'https://telegra.ph/Kak-podklyuchitsya-k-Proxy-10-13-3' }
+            windows: { name: 'Windows', icon: '📖', url: 'https://telegra.ph/Kak-podklyuchitsya-k-Proxy-10-13-3' },
+            faq: { name: 'FAQ', icon: '💡', url: 'https://telegra.ph/FAQ-01-01' }
         };
 
         const TARIFFS = [
             { months: 1, price: 150 },
-            { months: 2, price: 280, description: 'Выгодно! Скидка 20₽' },
-            { months: 3, price: 400, description: 'Лучшая цена! Скидка 50₽' },
-            { months: 6, price: 700, description: 'Супер-экономия! Скидка 200₽' }
+            { months: 2, price: 280, description: 'Скидка 20₽' },
+            { months: 3, price: 400, description: 'Скидка 50₽' },
+            { months: 6, price: 700, description: 'Супер-экономия' }
         ];
 
         // --- Инициализация и UI функции ---
@@ -449,20 +422,23 @@
                 tg = window.Telegram.WebApp;
                 tg.ready();
                 tg.expand();
-                tg.setHeaderColor(tg.themeParams.bg_color || '#0d0d0d');
-                tg.setBackgroundColor(tg.themeParams.bg_color || '#0d0d0d');
-
-                isInTelegram = tg.initData !== '';
                 
+                // Настройка темы
+                const bgColor = tg.themeParams.bg_color;
+                document.body.style.backgroundColor = bgColor;
+                if (tg.colorScheme === 'light') {
+                     document.body.classList.add('light-theme');
+                }
+
                 if (tg.initDataUnsafe.user) {
                     telegramId = tg.initDataUnsafe.user.id;
                     document.getElementById('telegram-id-display').textContent = telegramId;
                 } else {
-                    document.getElementById('telegram-id-display').textContent = 'ID не определен (не в Telegram WebApp)';
+                    document.getElementById('telegram-id-display').textContent = 'ID не определен';
                     telegramId = 'NO_TG_ID';
                 }
             } else {
-                console.warn('Telegram WebApp API не найдено.');
+                console.warn('Telegram WebApp API не найдено. Режим разработки.');
                 telegramId = 'NO_TG_ID_DEV';
                 document.getElementById('telegram-id-display').textContent = `${telegramId} (DEV)`;
             }
@@ -472,9 +448,8 @@
             renderDownloadButtons();
             renderInstructionButtons();
             
-            // Если Firebase не инициализировался (он инициализируется через type="module"),
-            // будет использовано состояние "Загрузка" до его готовности.
-            document.getElementById('firebase-user-id').textContent = window.firebaseUserId || 'Ожидание аутентификации...';
+            // Обновляем Firebase ID после загрузки (будет обновлен в startSubscriptionListener)
+            document.getElementById('firebase-user-id').textContent = window.firebaseUserId || 'Ожидание...';
         });
         
         // Функция, которая будет вызвана после успешной аутентификации Firebase
@@ -482,12 +457,14 @@
             const userId = window.firebaseUserId;
             document.getElementById('firebase-user-id').textContent = userId;
             
-            if (!window.db || !userId || telegramId === 'NO_TG_ID') {
+            // Проверка на корректность данных
+            if (!window.db || !userId) {
                 document.getElementById('status-info').innerHTML = 
-                    `<span class="text-red-500">❌ Ошибка: Невозможно получить статус. (TG ID: ${telegramId})</span>`;
+                    `<span style="color: #ef4444;">❌ Ошибка: Невозможно получить статус. (TG ID: ${telegramId})</span>`;
                 return;
             }
 
+            // Создаем путь к документу, привязанному к Firebase ID
             const subscriptionRef = doc(window.db, `artifacts/${window.appId}/users/${userId}/subscription/status_doc`);
             
             // onSnapshot для отслеживания изменений в реальном времени
@@ -496,6 +473,9 @@
                 const info = document.getElementById('status-info');
                 const vlessContainer = document.getElementById('vless-container');
                 const vlessLinkDisplay = document.getElementById('vless-link-display');
+                
+                // Сбрасываем стили контейнера
+                vlessContainer.style.display = 'none';
 
                 if (docSnap.exists() && docSnap.data().status === 'active') {
                     const data = docSnap.data();
@@ -509,7 +489,8 @@
                         <p>Пользователь (Firebase ID): ${userId}</p>
                     `;
 
-                    vlessLinkDisplay.textContent = data.vless_link;
+                    // Показываем VLESS ссылку
+                    vlessLinkDisplay.textContent = data.vless_link || 'Ошибка: ссылка отсутствует';
                     vlessContainer.style.display = 'flex';
                 } else {
                     indicator.textContent = 'Неактивна ❌';
@@ -523,7 +504,7 @@
             }, (error) => {
                 console.error("Ошибка при получении статуса подписки:", error);
                 document.getElementById('status-info').innerHTML = 
-                    `<span class="text-red-500">❌ Ошибка: Не удалось получить статус. ${error.message}</span>`;
+                    `<span style="color: #ef4444;">❌ Ошибка: Не удалось получить статус. ${error.message}</span>`;
             });
         }
         
@@ -536,49 +517,46 @@
                 <div class="tariff-card">
                     <button class="btn" onclick="buySubscription(${t.months}, ${t.price})">
                         ${t.months} мес. <span class="btn-price">${t.price} ₽</span>
-                        ${t.description ? `<span style="font-size:0.75em; opacity:0.8;">(${t.description})</span>` : ''}
+                        ${t.description ? `<span style="font-size:0.75em; opacity:0.8; margin-top: 2px;">(${t.description})</span>` : ''}
                     </button>
                 </div>
             `).join('');
         }
 
         function buySubscription(months, price) {
-            if (YOOMONEY_RECIPIENT_ID === 'YOUR_YOOMONEY_ACCOUNT_ID') {
-                showModal('Ошибка', 'Пожалуйста, замените "YOUR_YOOMONEY_ACCOUNT_ID" в коде на ваш реальный ID кошелька YooMoney.', 'ОК');
+            if (YOOMONEY_RECIPIENT_ID === '4100119271147598') {
+                showModal('⚠️ Замена ID', 'Пожалуйста, замените ID кошелька (4100119271147598) на ваш реальный номер YooMoney в коде, чтобы оплата работала!', 'Понятно');
                 return;
             }
 
-            if (telegramId === 'NO_TG_ID') {
-                showModal('Ошибка', 'Не удалось определить ваш Telegram ID. Откройте это приложение через бота.', 'ОК');
+            if (telegramId === 'NO_TG_ID' || telegramId === 'NO_TG_ID_DEV') {
+                showModal('Ошибка', 'Не удалось определить ваш Telegram ID. Пожалуйста, откройте это Mini App через бота.', 'ОК');
                 return;
             }
 
+            // Комментарий для привязки оплаты к пользователю
             const comment = `Оплата_${months}мес_TGID_${telegramId}_${APP_NAME}`;
             
-            // Формируем ссылку для оплаты YooMoney
+            // Формируем динамическую ссылку для перевода
             const yooMoneyUrl = `${YOOMONEY_BASE_URL}?amount=${price}&comment=${encodeURIComponent(comment)}`;
 
-            showModal('Подтверждение оплаты', `Вы будете перенаправлены на YooMoney для оплаты ${price} ₽ за ${months} месяцев. 
-                <br><br><strong>Ваш Telegram ID (${telegramId}) будет добавлен в комментарий к платежу для автоматической активации.</strong>
-                <br>После оплаты вернитесь в чат бота.`, 
+            showModal('Подтверждение оплаты', `Вы будете перенаправлены на YooMoney для оплаты <strong>${price} ₽</strong> за ${months} месяцев. 
+                <br><br><strong>Ваш Telegram ID (${telegramId}) автоматически добавлен в комментарий к платежу.</strong>
+                <br>После оплаты обязательно вернитесь в чат бота.`, 
                 'Перейти к оплате', 
                 () => { 
-                    window.open(yooMoneyUrl, '_blank'); 
-                    // Опционально: сообщаем боту, что пользователь начал оплату
-                    // if (tg) tg.sendData(JSON.stringify({ action: 'purchase_attempt', months: months, amount: price }));
+                    window.openLink(yooMoneyUrl); // Используем openLink для совместимости с TWA
+                    
+                    // --- ДЕМОНСТРАЦИЯ: Mock-платеж ---
+                    // В реальном проекте УДАЛИТЕ этот блок. Он только для демонстрации.
+                    showToast(`Инициирован Mock-платеж. Бот должен его проверить...`, 5000);
+                    setTimeout(() => {
+                        window.mockUpdateSubscription(telegramId, months);
+                        showModal('🔥 Активация (ДЕМО)', `Подписка на ${months} месяцев активирована! (В реальном проекте это делает БЭКЕНД)`, 'Готово');
+                    }, 5000);
+                    // ------------------------------------
                 }
             );
-            
-            // --- Для демонстрации автоматического подтверждения (УДАЛИТЕ В РЕАЛЬНОМ ПРОДАКШЕНЕ) ---
-            // В реальном приложении это должен делать ваш БЭКЕНД после получения Webhook от YooMoney.
-            // Здесь это просто для демонстрации работы UI и Firestore.
-            /*
-            setTimeout(() => {
-                window.mockUpdateSubscription(telegramId, months);
-                showModal('Mock: Активация', `[ДЕМО] Подписка на ${months} месяцев активирована! (Это должно происходить на вашем БЭКЕНДЕ!)`, 'Готово');
-            }, 3000);
-            */
-            // -----------------------------------------------------------------------------------
         }
 
 
@@ -589,7 +567,7 @@
                 const item = DOWNLOAD_LINKS[key];
                 return `
                     <button class="btn" onclick="openLink('${item.url}')" title="Скачать для ${item.name}">
-                        ${item.icon} ${item.name}
+                        <span class="btn-icon">${item.icon}</span> ${item.name}
                     </button>
                 `;
             }).join('');
@@ -601,15 +579,15 @@
             grid.innerHTML = Object.keys(INSTRUCTION_LINKS).map(key => {
                 const item = INSTRUCTION_LINKS[key];
                 return `
-                    <button class="btn" onclick="openLink('${item.url}')" style="font-size: 0.9em;" title="Инструкция для ${item.name}">
-                        ${item.icon} Инструкция (${item.name})
+                    <button class="btn" onclick="openLink('${item.url}')" title="Инструкция для ${item.name}">
+                        <span class="btn-icon">${item.icon}</span> ${item.name}
                     </button>
                 `;
             }).join('');
         }
 
         // Общая функция для открытия ссылок
-        function openLink(url) {
+        window.openLink = function(url) {
             if (tg) {
                 // Используем функцию Telegram Web App для открытия внешних ссылок
                 tg.openLink(url);
@@ -642,14 +620,25 @@
 
         // --- Утилиты UI (Замена alert()/confirm()) ---
         
-        // Создание элемента модального окна (для showModal)
-        function createModalElement(title, message, buttonText, callback) {
+        // Показ модального окна
+        window.showModal = function(title, message, buttonText, callback = null) {
+            // Удаляем старое окно, если оно есть
+            const existingModal = document.getElementById('custom-modal-overlay');
+            if (existingModal) existingModal.remove();
+
+            // Используем цвета из темы Telegram
+            const bgColor = tg ? tg.themeParams.secondary_bg_color : '#1a1a2e';
+            const textColor = tg ? tg.themeParams.text_color : 'var(--text-dark)';
+            const accentColor = tg ? tg.themeParams.link_color : 'var(--accent-color)';
+            const buttonColor = tg ? tg.themeParams.button_color : 'var(--accent-color)';
+            const buttonTextColor = tg ? tg.themeParams.button_text_color : '#000';
+            
             const modalHtml = `
-                <div id="custom-modal-overlay" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7); z-index: 10000; display: flex; justify-content: center; align-items: center;">
-                    <div style="background: ${tg ? tg.themeParams.secondary_bg_color : '#1a1a2e'}; padding: 25px; border-radius: 12px; max-width: 350px; width: 90%; text-align: center; box-shadow: 0 5px 20px rgba(0, 0, 0, 0.5); border: 1px solid ${tg ? tg.themeParams.link_color : 'var(--accent-color)'}; color: ${tg ? tg.themeParams.text_color : 'var(--text-dark)'};">
-                        <h3 style="font-size: 1.4em; margin-bottom: 15px; color: ${tg ? tg.themeParams.link_color : 'var(--accent-color)'};">${title}</h3>
+                <div id="custom-modal-overlay">
+                    <div id="modal-content" style="background: ${bgColor}; border: 1px solid ${accentColor}; color: ${textColor};">
+                        <h3 style="font-size: 1.4em; margin-bottom: 15px; color: ${accentColor};">${title}</h3>
                         <p style="margin-bottom: 25px; line-height: 1.5; font-size: 0.95em;">${message}</p>
-                        <button id="modal-action-btn" style="padding: 10px 20px; background: ${tg ? tg.themeParams.button_color : 'var(--accent-color)'}; color: ${tg ? tg.themeParams.button_text_color : '#000'}; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; transition: background 0.2s;">
+                        <button id="modal-action-btn" style="background: ${buttonColor}; color: ${buttonTextColor};">
                             ${buttonText}
                         </button>
                     </div>
@@ -662,15 +651,6 @@
                 if (callback) callback();
             };
         }
-
-        // Показ модального окна
-        function showModal(title, message, buttonText, callback = null) {
-            // Удаляем старое окно, если оно есть
-            const existingModal = document.getElementById('custom-modal-overlay');
-            if (existingModal) existingModal.remove();
-
-            createModalElement(title, message, buttonText, callback);
-        }
         
         // Показ "тоста" (ненавязчивое уведомление)
         function showToast(message, duration = 3000) {
@@ -679,7 +659,7 @@
                  tg.showPopup({
                     title: '',
                     message: message,
-                    buttons: [{ type: 'ok', text: 'OK' }]
+                    buttons: [{ id: 'ok', type: 'ok', text: 'OK' }]
                 }, () => {});
                 return;
             }
@@ -698,6 +678,7 @@
                 z-index: 10001;
                 opacity: 0;
                 transition: opacity 0.3s ease-in-out;
+                font-size: 0.9em;
             `;
             document.body.appendChild(toast);
 
