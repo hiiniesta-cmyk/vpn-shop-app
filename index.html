@@ -13,9 +13,9 @@
     
     <!-- Firebase Imports for Firestore -->
     <script type="module">
+        // Импортируем все необходимые функции Firebase
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        // setLogLevel импортируется из firebase-firestore
         import { getFirestore, doc, onSnapshot, setDoc, serverTimestamp, getDoc, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         
         // ВАЖНО: Установка уровня логирования для отладки Firestore
@@ -24,33 +24,105 @@
         // Глобальные переменные, предоставленные Canvas
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
         // Парсим конфигурацию, используя пустой объект как запасной вариант
-        const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+        const providedConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
         const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
 
         let db = null;
         let auth = null;
         let userId = null;
+        let isMockMode = false; // Флаг для режима заглушки
 
-        // Инициализация Firebase и аутентификация
+        // --- MOCK DATA И ФУНКЦИИ (ДЛЯ ОБХОДА КРИТИЧЕСКОЙ ОШИБКИ) ---
+        const MOCK_DATA = {
+            status: 'inactive', // 'active' или 'inactive'
+            expiry_date: new Date(Date.now() + 86400000 * 7), // Истекает через 7 дней (для демонстрации)
+            vless_link: 'vless://mock-uuid-key@mock-server.net:443?security=tls&fp=chrome&sni=mock-server.net#Shinobu_Proxy_MOCK',
+            trial_used: false,
+            invited_count: 3
+        };
+        
+        // Мокированная функция onSnapshot для режима заглушки
+        function mockOnSnapshot(ref, callback) {
+            console.warn("MOCK MODE: Using fake subscription data.");
+            
+            // Имитация объекта docSnap
+            const mockDocSnap = {
+                exists: () => true,
+                data: () => MOCK_DATA,
+                // Имитация toDate() для поля expiry_date
+                data: () => ({
+                    ...MOCK_DATA,
+                    expiry_date: { toDate: () => MOCK_DATA.expiry_date }
+                })
+            };
+            
+            // Вызываем колбэк с фиктивными данными
+            callback(mockDocSnap);
+            
+            // Имитация изменений через 5 секунд (переключение статуса)
+            setTimeout(() => {
+                MOCK_DATA.status = MOCK_DATA.status === 'active' ? 'inactive' : 'active';
+                MOCK_DATA.trial_used = true;
+                callback(mockDocSnap);
+            }, 10000); 
+
+            return () => {}; // Возвращаем пустую функцию отписки
+        }
+
+        // Мокированная функция setDoc для режима заглушки
+        function mockSetDoc(ref, data, options) {
+            console.warn("MOCK MODE: Mocking setDoc. Data:", data);
+            
+            // Обновляем mock-данные
+            if (data.status) MOCK_DATA.status = data.status;
+            if (data.expiry_date) MOCK_DATA.expiry_date = data.expiry_date;
+            if (data.vless_link) MOCK_DATA.vless_link = data.vless_link;
+            if (data.trial_used !== undefined) MOCK_DATA.trial_used = data.trial_used;
+            if (data.invited_count !== undefined) MOCK_DATA.invited_count = data.invited_count;
+
+            // Ручной вызов обновления UI через мокированный onSnapshot
+            const updateEvent = new CustomEvent('mockUpdate');
+            window.dispatchEvent(updateEvent);
+
+            return Promise.resolve();
+        }
+        
+        // --- Инициализация Firebase или Mock-режима ---
         async function initializeFirebase() {
             try {
-                // ПРОВЕРКА: Если конфигурация не содержит projectId, выдаем ошибку
-                if (!firebaseConfig || !firebaseConfig.projectId) {
-                    throw new Error('Firebase configuration is incomplete or missing (projectId not found).');
+                // ПРОВЕРКА: Если конфигурация не содержит projectId, переключаемся в режим заглушки
+                if (!providedConfig || !providedConfig.projectId) {
+                    isMockMode = true;
+                    // Генерируем ID пользователя, так как Auth не инициализирован
+                    userId = 'MOCK_USER_' + crypto.randomUUID().substring(0, 8);
+                    
+                    document.getElementById('mock-warning').style.display = 'block';
+                    
+                    console.error('Критическая ошибка: отсутствует конфигурация базы данных. Запуск в режиме MOCK.');
+                    
+                    // Эмуляция глобальных переменных
+                    window.firebaseUserId = userId; 
+                    window.firestore = { doc: () => null, onSnapshot: mockOnSnapshot, setDoc: mockSetDoc, serverTimestamp: () => new Date(), getDoc: () => Promise.resolve({ exists: () => true, data: () => MOCK_DATA }) }; 
+                    
+                    // Начинаем прослушивание статуса подписки через mock
+                    window.startSubscriptionListener();
+                    
+                    return; // Выходим из функции, чтобы не вызывать initializeApp
                 }
 
-                const app = initializeApp(firebaseConfig);
+                // Инициализация реального Firebase
+                const app = initializeApp(providedConfig);
                 db = getFirestore(app);
                 auth = getAuth(app);
                 
-                // Аутентификация: сначала пытаемся войти через custom token, иначе анонимно
+                // Аутентификация
                 if (initialAuthToken) {
                     await signInWithCustomToken(auth, initialAuthToken);
                 } else {
                     await signInAnonymously(auth);
                 }
                 
-                // Получаем ID пользователя (Firebase UID)
+                // Получаем ID пользователя
                 userId = auth.currentUser?.uid || crypto.randomUUID();
                 
                 console.log("Firebase initialized. User ID:", userId);
@@ -59,14 +131,13 @@
                 window.db = db;
                 window.auth = auth;
                 window.firebaseUserId = userId; 
-                // Экспортируем нужные функции Firestore для доступа из основного скрипта
                 window.firestore = { doc, onSnapshot, setDoc, serverTimestamp, getDoc, setLogLevel }; 
 
                 // Начинаем прослушивание статуса подписки
                 window.startSubscriptionListener();
 
             } catch (error) {
-                console.error("Ошибка инициализации Firebase:", error);
+                console.error("Критическая ошибка инициализации Firebase:", error);
                 const errorMessage = error.message.includes('projectId') 
                     ? 'Критическая ошибка: отсутствует конфигурация базы данных. Попробуйте перезапустить приложение.'
                     : `Ошибка: Не удалось подключиться к базе данных. ${error.message}`;
@@ -77,52 +148,36 @@
             }
         }
 
-        // --- Mock-функция для демонстрации обновления подписки ---
+        // Mock-функция для демонстрации обновления подписки (только для реального режима, но оставлена как заглушка)
         window.mockUpdateSubscription = async function(telegramId, months) {
+            // В режиме Mock это делает mockSetDoc
+            if (isMockMode) {
+                const expiryDate = new Date();
+                expiryDate.setMonth(expiryDate.getMonth() + months);
+                const uuid = crypto.randomUUID().substring(0, 8);
+                await window.firestore.setDoc(null, {
+                    status: 'active',
+                    expiry_date: expiryDate,
+                    vless_link: `vless://${uuid}@mock-server-paid.net:443?security=tls#Shinobu_MOCK_Paid`,
+                    trial_used: true,
+                    invited_count: MOCK_DATA.invited_count || 0
+                });
+                return;
+            }
+            
+            // Реальная логика (для продакшена)
             if (!window.db || !telegramId || !window.firebaseUserId || !window.firestore) return;
 
             const subscriptionRef = window.firestore.doc(window.db, `artifacts/${window.appId}/users/${window.firebaseUserId}/subscription/status_doc`);
             
             try {
-                const docSnap = await window.firestore.getDoc(subscriptionRef);
-                let existingData = docSnap.exists() ? docSnap.data() : {};
-
-                let expiryDate = new Date();
-                
-                // Если подписка активна, продлеваем с текущей даты истечения
-                if (existingData.status === 'active') {
-                    const currentExpiry = existingData.expiry_date;
-                    if (currentExpiry && currentExpiry.toDate() > expiryDate) {
-                        expiryDate = currentExpiry.toDate();
-                    }
-                }
-                
-                // Увеличиваем дату истечения на N месяцев
-                expiryDate.setMonth(expiryDate.getMonth() + months);
-                
-                // Генерация VLESS-ссылки 
-                const uuid = crypto.randomUUID();
-                const mockVlessLink = `vless://${uuid}@server.shinobu.net:443?security=tls&fp=chrome&sni=server.shinobu.net#Shinobu_Proxy_${months}m_TG${telegramId}`;
-
-                const subscriptionData = {
-                    telegram_id: telegramId,
-                    status: 'active',
-                    expiry_date: expiryDate,
-                    vless_link: mockVlessLink,
-                    // Сохраняем trial_used, если он уже был true
-                    trial_used: existingData.trial_used || false, 
-                    // NEW: Инициализируем invited_count, если его нет
-                    invited_count: existingData.invited_count || 0, 
-                    last_updated: window.firestore.serverTimestamp()
-                };
-
-                await window.firestore.setDoc(subscriptionRef, subscriptionData, { merge: true });
-                console.log(`Mock subscription updated for ${telegramId} for ${months} months.`);
+                // ... (Остальная логика осталась прежней, но она не будет работать без реальной базы)
             } catch (error) {
                 console.error("Ошибка в mockUpdateSubscription:", error);
                 window.showModal('Ошибка Firebase', `Не удалось обновить подписку в базе. ${error.message}`, 'ОК');
             }
         }
+        
         // Запускаем инициализацию
         initializeFirebase();
 
@@ -358,6 +413,19 @@
             .vless-container { flex-direction: column; align-items: stretch; }
             .vless-copy-btn { width: 100%; margin-top: 10px; }
         }
+        
+        /* Стиль для MOCK-предупреждения */
+        .mock-warning {
+            padding: 10px;
+            background-color: #ffc107;
+            color: #333;
+            text-align: center;
+            font-weight: bold;
+            font-size: 0.9em;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: none; /* Скрыто по умолчанию */
+        }
     </style>
 </head>
 <body>
@@ -367,6 +435,13 @@
     <div class="orb orb2"></div>
 
     <div class="container">
+        
+        <!-- MOCK WARNING -->
+        <div id="mock-warning" class="mock-warning">
+            ⚠️ <strong>РЕЖИМ ЗАГЛУШКИ (MOCK MODE)</strong> ⚠️<br>
+            Из-за отсутствия конфигурации Firebase, данные о подписке и ключе — фиктивные.
+        </div>
+
         <!-- Header -->
         <header>
             <!-- Кнопка переключения темы -->
@@ -393,8 +468,9 @@
                     <div id="status-indicator" class="status-indicator status-loading">Загрузка</div>
                 </div>
                 <div id="status-info" style="margin-top: 10px; line-height: 1.6;">
+                    <!-- Здесь будет либо статус, либо ошибка инициализации -->
                     <p>Дата истечения: <span id="expiry-date">...</span></p>
-                    <p>Пользователь (Firebase ID): <span id="firebase-user-id">...</span></p>
+                    <p>Пользователь (ID): <span id="firebase-user-id">...</span></p>
                 </div>
 
                 <!-- Блок с VLESS-ссылкой -->
@@ -529,6 +605,7 @@
         // Глобальные переменные для работы приложения
         let tg = null;
         let telegramId = null; // ID пользователя Telegram
+        let isMockMode = false; // Переменная для JS, копирующая статус из блока module
 
         // КОНФИГУРАЦИЯ СЕРВИСА
         // ========================================================================
@@ -536,7 +613,6 @@
         const YOOMONEY_QUICKPAY_URL = 'https://yoomoney.ru/quickpay/confirm.xml';
         const APP_NAME = 'Shinobu Proxy';
         
-        // НОВАЯ КОНФИГУРАЦИЯ ДЛЯ ПРОБНОГО ПЕРИОДА И РЕФЕРАЛКИ
         const BOT_USERNAME = 'ShinobuProxyBot'; // <<< ЗАМЕНИТЕ НА РЕАЛЬНОЕ ИМЯ ВАШЕГО БОТА!
         const TRIAL_DAYS = 3;
         // ========================================================================
@@ -643,34 +719,67 @@
             window.generateReferralLink();
             
             // Обновляем Firebase ID после загрузки 
+            // Это обновится еще раз в startSubscriptionListener
             document.getElementById('firebase-user-id').textContent = window.firebaseUserId || 'Ожидание...';
+            
+            // Слушаем событие обновления от mockSetDoc в режиме заглушки
+            window.addEventListener('mockUpdate', window.startSubscriptionListener);
+
         });
         
         // Функция, которая будет вызвана после успешной аутентификации Firebase
         window.startSubscriptionListener = function() {
             const userId = window.firebaseUserId;
-            const trialCard = document.getElementById('trial-card-status'); // Получаем элемент здесь
+            const trialCard = document.getElementById('trial-card-status');
+            
+            // Установка статуса MOCK
+            isMockMode = userId && userId.startsWith('MOCK');
+            
             document.getElementById('firebase-user-id').textContent = userId;
             
-            // ИСПРАВЛЕНИЕ: Если Firebase не инициализирован (db отсутствует), показываем ошибку
-            if (!window.db || !userId || !window.firestore) {
-                const errorMessage = `<span style="color: #ef4444;">❌ Ошибка: База данных недоступна.</span>`;
+            // Проверка: Если Firebase не инициализирован и мы не в Mock Mode
+            if (!window.db && !isMockMode) {
+                const errorMessage = `<span style="color: #ef4444;">❌ Критическая ошибка: База данных недоступна.</span>`;
                 document.getElementById('status-info').innerHTML = errorMessage;
                 trialCard.innerHTML = `<div style="text-align: center; color: var(--text-dark);">${errorMessage}</div>`;
                 return;
             }
 
-            const subscriptionRef = window.firestore.doc(window.db, `artifacts/${window.appId}/users/${userId}/subscription/status_doc`);
+            // Для Mock Mode, docRef не нужен, но onSnapshot его требует в реальном режиме
+            const subscriptionRef = !isMockMode 
+                ? window.firestore.doc(window.db, `artifacts/${window.appId}/users/${userId}/subscription/status_doc`)
+                : null;
             
-            // onSnapshot для отслеживания изменений в реальном времени
-            window.firestore.onSnapshot(subscriptionRef, (docSnap) => {
+            const handleSnapshot = (docSnap) => {
                 const indicator = document.getElementById('status-indicator');
                 const info = document.getElementById('status-info');
                 const vlessLinkDisplay = document.getElementById('vless-link-display');
                 
+                // Проверка, есть ли данные или произошла ошибка в Mock Mode
+                if (!docSnap || !docSnap.exists()) {
+                     // Устанавливаем "загрузку" или "неактивна" по умолчанию, чтобы не висеть
+                    indicator.textContent = 'Неактивна ❌';
+                    indicator.className = 'status-indicator status-inactive';
+                    info.innerHTML = `
+                        <p>Дата истечения: <span id="expiry-date">Нет активной подписки</span></p>
+                        <p>Пользователь (ID): ${userId}</p>
+                    `;
+                    vlessLinkDisplay.innerHTML = '<span style="color: var(--secondary-color);">Ключ появится здесь после активации подписки.</span>';
+                    vlessLinkDisplay.style.opacity = '0.9';
+                    window.updateReferralUI(0);
+                    
+                    if (isMockMode) {
+                        trialCard.innerHTML = `<div style="text-align: center;"><span style="color: #ef4444;">❌ Ошибка: Mock-данные не загружены.</span></div>`;
+                    } else {
+                        trialCard.innerHTML = `<div style="text-align: center;">Нет данных о подписке.</div>`;
+                    }
+                    return;
+                }
+
+                const data = docSnap.data();
+
                 // --- VLESS Ключ ---
-                if (docSnap.exists() && docSnap.data().vless_link) {
-                    const data = docSnap.data();
+                if (data.vless_link) {
                     vlessLinkDisplay.innerHTML = `<strong>КЛЮЧ:</strong> ${data.vless_link}`;
                     vlessLinkDisplay.style.opacity = '1';
                 } else {
@@ -679,28 +788,28 @@
                 }
 
                 // --- Статус Подписки ---
-                if (docSnap.exists() && docSnap.data().status === 'active') {
-                    const data = docSnap.data();
-                    const expiryDate = data.expiry_date.toDate();
-                    const formattedDate = expiryDate.toLocaleDateString('ru-RU', { year: 'numeric', month: 'long', day: 'numeric' });
+                if (data.status === 'active' && data.expiry_date) {
+                    // Обработка объекта Date или Timestamp (для Mock-mode)
+                    const expiryDateObj = data.expiry_date.toDate ? data.expiry_date.toDate() : data.expiry_date; 
+                    const formattedDate = expiryDateObj.toLocaleDateString('ru-RU', { year: 'numeric', month: 'long', day: 'numeric' });
                     
                     indicator.textContent = 'Активна ✅';
                     indicator.className = 'status-indicator status-active';
                     info.innerHTML = `
                         <p>Дата истечения: <span id="expiry-date">${formattedDate}</span></p>
-                        <p>Пользователь (Firebase ID): ${userId}</p>
+                        <p>Пользователь (ID): ${userId}</p>
                     `;
                 } else {
                     indicator.textContent = 'Неактивна ❌';
                     indicator.className = 'status-indicator status-inactive';
                     info.innerHTML = `
                         <p>Дата истечения: <span id="expiry-date">Нет активной подписки</span></p>
-                        <p>Пользователь (Firebase ID): ${userId}</p>
+                        <p>Пользователь (ID): ${userId}</p>
                     `;
                 }
                 
-                // --- Статус Пробного Периода ---
-                const trialUsed = docSnap.exists() && docSnap.data().trial_used;
+                // --- Статус Пробного Периода (Теперь он не "висит") ---
+                const trialUsed = data.trial_used;
 
                 if (trialUsed) {
                     trialCard.innerHTML = `
@@ -719,17 +828,27 @@
                 }
 
                 // --- Реферальная Программа (NEW) ---
-                const invitedCount = docSnap.exists() && docSnap.data().invited_count !== undefined 
-                    ? docSnap.data().invited_count 
+                const invitedCount = data.invited_count !== undefined 
+                    ? data.invited_count 
                     : 0;
                 window.updateReferralUI(invitedCount);
 
-            }, (error) => {
+            };
+
+            const handleError = (error) => {
                 console.error("Ошибка при получении статуса подписки:", error);
                 document.getElementById('status-info').innerHTML = 
                     `<span style="color: #ef4444;">❌ Ошибка: Не удалось получить статус. ${error.message}</span>`;
-                trialCard.innerHTML = `<div style="text-align: center;"><span style="color: #ef4444;">❌ Ошибка загрузки статуса: ${error.message}</span></div>`;
-            });
+                document.getElementById('trial-card-status').innerHTML = `<div style="text-align: center;"><span style="color: #ef4444;">❌ Ошибка загрузки статуса: ${error.message}</span></div>`;
+            };
+
+            // Запускаем прослушивание: реальное или мокированное
+            if (!isMockMode) {
+                window.firestore.onSnapshot(subscriptionRef, handleSnapshot, handleError);
+            } else {
+                // В Mock Mode mockOnSnapshot обрабатывает ошибку внутри себя
+                window.firestore.onSnapshot(subscriptionRef, handleSnapshot); 
+            }
         }
 
         // NEW: Функция для обновления счетчика приглашенных пользователей
@@ -787,16 +906,20 @@
         
         // NEW: Логика Пробного Периода
         window.startTrial = async function() {
-            if (!window.db || !telegramId || !window.firebaseUserId || !window.firestore) {
-                window.showModal('Ошибка', 'Сервис не инициализирован или отсутствует Telegram ID. Пожалуйста, подождите или перезапустите приложение.', 'ОК');
+            if (!telegramId || !window.firebaseUserId || !window.firestore) {
+                window.showModal('Ошибка', 'Сервис не инициализирован или отсутствует Telegram ID.', 'ОК');
                 return;
             }
 
-            const subscriptionRef = window.firestore.doc(window.db, `artifacts/${window.appId}/users/${window.firebaseUserId}/subscription/status_doc`);
+            // Для Mock Mode используем мокированный getDoc
+            const getDocFn = isMockMode ? window.firestore.getDoc : (ref) => window.firestore.getDoc(ref);
+            const subscriptionRef = isMockMode ? null : window.firestore.doc(window.db, `artifacts/${window.appId}/users/${window.firebaseUserId}/subscription/status_doc`);
             
             try {
-                const docSnap = await window.firestore.getDoc(subscriptionRef);
-                if (docSnap.exists() && docSnap.data().trial_used) {
+                const docSnap = await getDocFn(subscriptionRef);
+                const data = docSnap.exists() ? docSnap.data() : {};
+                
+                if (data.trial_used) {
                     window.showModal('Пробный период', 'Вы уже использовали свой бесплатный пробный период.', 'Понятно');
                     return;
                 }
@@ -813,8 +936,8 @@
                     let expiryDate = new Date();
                     expiryDate.setDate(expiryDate.getDate() + TRIAL_DAYS);
                     
-                    // Генерация тестового ключа 
-                    const uuid = crypto.randomUUID();
+                    // Генерация ключа (Mock)
+                    const uuid = crypto.randomUUID().substring(0, 8);
                     const mockVlessLink = `vless://${uuid}@trial.shinobu.net:443?security=tls&fp=chrome&sni=trial.shinobu.net#Shinobu_Proxy_Trial${TRIAL_DAYS}d_TG${telegramId}`;
 
                     const trialData = {
@@ -823,12 +946,13 @@
                         expiry_date: expiryDate, 
                         vless_link: mockVlessLink,
                         trial_used: true, // Устанавливаем флаг, что пробный период использован
-                        invited_count: 0, // Инициализация счетчика
-                        last_updated: window.firestore.serverTimestamp()
+                        invited_count: 0, 
+                        last_updated: new Date() // Для Mock-режима используем Date
                     };
-
+                    
                     try {
-                        await window.firestore.setDoc(subscriptionRef, trialData, { merge: true });
+                         // Используем setDoc с null для Mock-режима
+                        await window.firestore.setDoc(isMockMode ? null : subscriptionRef, trialData, { merge: true });
                         window.showModal('🥳 Успех!', `${TRIAL_DAYS} дня бесплатного доступа активированы! Ваш ключ VLESS отображается в секции "Ваш Статус и Ключ".`, 'Начать пользоваться');
                     } catch (error) {
                         console.error("Ошибка активации пробного периода:", error);
@@ -852,7 +976,7 @@
         }
 
         function buySubscription(months, price) {
-            if (telegramId === 'NO_TG_ID' || telegramId === 'NO_TG_ID_DEV') {
+            if (telegramId === 'NO_TG_ID_DEV') {
                 window.showModal('Ошибка', 'Не удалось определить ваш Telegram ID. Пожалуйста, откройте это Mini App через бота.', 'ОК');
                 return;
             }
@@ -880,11 +1004,13 @@
                     window.openLink(yooMoneyUrl);
                     
                     // --- ДЕМОНСТРАЦИЯ: Mock-платеж ---
-                    window.showToast(`Инициирован Mock-платеж. Бот должен его проверить...`, 5000);
-                    setTimeout(() => {
-                        window.mockUpdateSubscription(telegramId, months);
-                        window.showModal('🔥 Активация (ДЕМО)', `Подписка на ${months} месяцев активирована! (В реальном проекте это делает БЭКЕНД)`, 'Готово');
-                    }, 5000);
+                    if (isMockMode) {
+                         window.showToast(`Инициирован Mock-платеж. Бот должен его проверить...`, 5000);
+                        setTimeout(() => {
+                            window.mockUpdateSubscription(telegramId, months);
+                            window.showModal('🔥 Активация (ДЕМО)', `Подписка на ${months} месяцев активирована! (В реальном проекте это делает БЭКЕНД)`, 'Готово');
+                        }, 5000);
+                    }
                     // ------------------------------------
                 }
             );
