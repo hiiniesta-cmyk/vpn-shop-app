@@ -143,6 +143,14 @@
             transform: translateY(-3px) scale(1.02); 
             border-color: #7b2cbf;
         }
+        /* Стиль для отключенной кнопки */
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none !important;
+            box-shadow: none !important;
+        }
+
         body.light-theme .btn { background: rgba(0, 123, 255, 0.15); border-color: rgba(0, 123, 255, 0.6); color: #0056b3; box-shadow: none; }
         body.light-theme .btn:hover { background: rgba(0, 123, 255, 0.25); box-shadow: 0 4px 15px rgba(0, 123, 255, 0.3); }
 
@@ -362,25 +370,9 @@
         };
 
         // ==========================================================
-        // !!! НОВОЕ: МЕХАНИЗМ DEBOUNCE !!!
-        // Защита от двойного вызова функции в короткий промежуток времени.
+        // !!! ФИНАЛЬНОЕ ИСПРАВЛЕНИЕ: ДЕЛЕГИРОВАНИЕ СОБЫТИЙ + БЛОКИРОВКА КНОПОК !!!
         // ==========================================================
-        let isActionRunning = false;
-        const DEBOUNCE_TIME = 500; // 500 миллисекунд
-
-        function runProtectedAction(callback) {
-            if (isActionRunning) {
-                console.warn('Action blocked by debounce: already running.');
-                return;
-            }
-            isActionRunning = true;
-            callback();
-            setTimeout(() => {
-                isActionRunning = false;
-            }, DEBOUNCE_TIME);
-        }
-        // ==========================================================
-
+        
         window.addEventListener('load', () => {
             // Инициализация Telegram WebApp
             if (window.Telegram?.WebApp) { 
@@ -410,27 +402,78 @@
             document.getElementById('firebase-user-id').textContent = userId;
             document.getElementById('telegram-id-display').textContent = telegramId;
             
-            // Рендеринг UI и назначение обработчиков
+            // Рендеринг UI (создание кнопок с data-атрибутами)
             renderTariffs(); 
             renderDownloadButtons(); 
             renderInstructionButtons(); 
             generateReferralLink();
             window.startSubscriptionListener();
 
-            // !!! ИСПРАВЛЕНИЕ: Назначение обработчиков кликов с e.stopPropagation() !!!
-            document.getElementById('theme-toggle-btn').addEventListener('click', (e) => {
-                e.stopPropagation();
-                toggleTheme();
-            });
-            document.getElementById('copy-vless-btn').addEventListener('click', (e) => {
-                e.stopPropagation();
-                copyVlessLink();
-            });
-            
             if (telegramId === 'DEV_USER') {
                 showToast(`API: ${API_BASE}. Не забудьте запустить python3 app.py`, 6000);
             }
         });
+        
+        // --- ДЕЛЕГИРОВАННЫЙ ОБРАБОТЧИК КЛИКОВ (Самое надежное решение) ---
+        window.addEventListener('click', (e) => {
+            // 1. Находим ближайший элемент, который может быть кнопкой или ссылкой
+            const btn = e.target.closest("button, a"); 
+            if (!btn) return;
+            
+            // 2. САМОЕ ВАЖНОЕ: Останавливаем всплытие события, чтобы Telegram не дублировал его.
+            e.stopPropagation(); 
+            
+            // 3. Агрессивная защита: Отключаем кнопку на время выполнения действия
+            const DEBOUNCE_TIME = 500;
+            if (btn.disabled) return; 
+            btn.disabled = true;
+            setTimeout(() => { btn.disabled = false; }, DEBOUNCE_TIME);
+
+            // 4. Логика по делегированию (проверяем классы/ID)
+            
+            // Кнопки открытия ссылок/запуска действий
+            if (btn.classList.contains('open-link-delegate')) {
+                const url = btn.dataset.url;
+                openLink(url);
+            }
+            
+            // Кнопки тарифов
+            else if (btn.classList.contains('tariff-btn-delegate')) {
+                const months = parseInt(btn.dataset.months);
+                const price = parseFloat(btn.dataset.price);
+                buySubscription(months, price);
+            }
+
+            // Кнопка активации триала
+            else if (btn.id === 'start-trial-btn') {
+                startTrial();
+            }
+
+            // Кнопка сброса данных (DEV)
+            else if (btn.id === 'reset-data-btn') {
+                resetUserData();
+            }
+
+            // Кнопка копирования VLESS
+            else if (btn.id === 'copy-vless-btn') {
+                copyVlessLink();
+            }
+
+            // Кнопка копирования реферальной ссылки
+            else if (btn.id === 'copy-referral-btn') {
+                const link = document.getElementById('referral-link-display').textContent;
+                copyText(link, 'Ссылка скопирована!');
+            }
+
+            // Кнопка переключения темы
+            else if (btn.id === 'theme-toggle-btn') {
+                toggleTheme();
+            }
+        });
+
+        // ==========================================================
+        // --- ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ (без индивидуальных addEventListener) ---
+        // ==========================================================
         
         function toggleTheme() {
             const body = document.body;
@@ -440,6 +483,111 @@
             localStorage.setItem('theme', body.classList.contains('light-theme') ? 'light' : 'dark');
         }
 
+        window.startTrial = async () => {
+            await window.firestore.setDoc(null, {
+                status: 'active',
+                trial_used: true,
+            }, { merge: true });
+            showToast('Пробный период активирован! Ваш ключ генерируется.');
+        };
+        
+        function buySubscription(months, price) {
+            if (telegramId === 'DEV_USER') return showToast('Запустите через Telegram');
+            
+            const comment = `Оплата_${months}мес_TGID_${telegramId}_Shinobu`;
+            const url = `https://yoomoney.ru/quickpay/confirm.xml?receiver=${YOOMONEY_RECIPIENT_ID}&quickpay-form=shop&targets=Shinobu+Proxy+${months}мес&sum=${price.toFixed(2)}&comment=${encodeURIComponent(comment)}&paymentType=AC`;
+            
+            openLink(url);
+            showToast('Переход на YooMoney...');
+        }
+
+        window.openLink = (url) => {
+            if (tg?.openLink) {
+                tg.openLink(url);
+            } else {
+                window.open(url, '_blank');
+            }
+        };
+
+        window.resetUserData = async () => {
+            if (telegramId !== 'DEV_USER') return showToast('Сброс доступен только в DEV-режиме', 3000);
+            
+            showToast('Попытка сброса данных...', 3000);
+
+            try {
+                const res = await fetch(`${API_BASE}/user/${userId}`, {
+                    method: 'DELETE',
+                });
+                if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+                
+                showToast('Данные успешно сброшены!', 3000);
+                window.dispatchEvent(new Event('db-update')); 
+
+            } catch (error) {
+                console.error("Ошибка при сбросе данных:", error);
+                showToast('Ошибка при сбросе данных. Смотрите консоль.', 5000);
+            }
+        };
+        
+        function copyText(text, msg) {
+            const el = document.createElement('textarea');
+            el.value = text;
+            document.body.appendChild(el);
+            el.select();
+            document.execCommand('copy');
+            document.body.removeChild(el);
+            showToast(msg);
+        }
+        window.copyVlessLink = () => {
+            const text = document.getElementById('vless-link-display').textContent.replace('КЛЮЧ:', '').trim();
+            if (text.includes('Ключ появится') || text.includes('Ключ генерируется')) return showToast('Активируйте подписку или дождитесь ключа!');
+            copyText(text, 'Ключ скопирован!');
+        };
+        
+        window.generateReferralLink = () => {
+            const link = `https://t.me/${BOT_USERNAME}?start=ref_${telegramId}`;
+            document.getElementById('referral-link-display').textContent = link;
+        };
+        
+        // --- ФУНКЦИИ РЕНДЕРИНГА (только генерируют HTML с data-атрибутами) ---
+
+        function renderTariffs() {
+            const grid = document.getElementById('tariff-grid');
+            grid.innerHTML = TARIFFS.map((t) => `
+                <div class="tariff-card">
+                    <button class="btn tariff-btn tariff-btn-delegate" data-months="${t.months}" data-price="${t.price}">
+                        <i class="fas fa-calendar"></i>
+                        ${t.months} мес.
+                        <span style="font-weight: bold; font-size: 1.1em;">${t.price.toFixed(2).replace('.', ',')} ₽</span>
+                        ${t.description ? `<span style="font-size: 0.8em; opacity: 0.8;">(${t.description})</span>` : ''}
+                    </button>
+                </div>
+            `).join('');
+            // УДАЛЕНО: document.querySelectorAll('.tariff-btn').forEach(button => { ... });
+        }
+
+        function renderDownloadButtons() {
+            const grid = document.getElementById('download-grid');
+            grid.innerHTML = Object.values(DOWNLOAD_LINKS).map(i => `
+                <button class="btn download-btn open-link-delegate" data-url="${i.url}">
+                    <i class="${i.icon}"></i> ${i.name}
+                </button>
+            `).join('');
+            // УДАЛЕНО: document.querySelectorAll('.download-btn').forEach(button => { ... });
+        }
+
+        function renderInstructionButtons() {
+            const grid = document.getElementById('instructions-grid');
+            grid.innerHTML = Object.values(INSTRUCTION_LINKS).map(i => `
+                <button class="btn instruction-btn open-link-delegate" data-url="${i.url}">
+                    <i class="${i.icon}"></i> ${i.name}
+                </button>
+            `).join('');
+            // УДАЛЕНО: document.querySelectorAll('.instruction-btn').forEach(button => { ... });
+        }
+        
+        // --- ФУНКЦИЯ ДЛЯ УВЕДОМЛЕНИЙ И СЛУШАТЕЛЬ СТАТУСА ---
+        
         window.startSubscriptionListener = async function() {
             const indicator = document.getElementById('status-indicator');
             const info = document.getElementById('status-info');
@@ -477,18 +625,10 @@
                             </button>
                         ` : ''}
                     `;
-                    if (telegramId === 'DEV_USER') {
-                        document.getElementById('reset-data-btn').addEventListener('click', (e) => {
-                            e.stopPropagation();
-                            resetUserData();
-                        });
-                    }
+                    // Сброс обработчика не нужен, он ловится делегатом
                 } else {
                     trialCard.innerHTML = `<button class="btn btn-primary" id="start-trial-btn"><i class="fas fa-gift"></i> Активировать ${TRIAL_DAYS} дня бесплатно</button>`;
-                    document.getElementById('start-trial-btn')?.addEventListener('click', (e) => {
-                        e.stopPropagation(); // Защита от всплытия
-                        startTrial();
-                    });
+                    // Обработчик ловится делегатом
                 }
 
                 window.updateReferralUI(data.invited_count || 0);
@@ -501,140 +641,6 @@
             document.getElementById('invited-count-display').innerHTML = `Приглашено: <strong>${count}</strong>`;
         };
 
-        window.startTrial = async () => {
-            // !!! ИСПРАВЛЕНИЕ: Вызов защищен runProtectedAction !!!
-            runProtectedAction(async () => {
-                await window.firestore.setDoc(null, {
-                    status: 'active',
-                    trial_used: true,
-                }, { merge: true });
-
-                showToast('Пробный период активирован! Ваш ключ генерируется.');
-            });
-        };
-
-        window.resetUserData = async () => {
-            if (telegramId !== 'DEV_USER') return showToast('Сброс доступен только в DEV-режиме', 3000);
-            
-            showToast('Попытка сброса данных...', 3000);
-
-            try {
-                const res = await fetch(`${API_BASE}/user/${userId}`, {
-                    method: 'DELETE',
-                });
-                if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-                
-                showToast('Данные успешно сброшены!', 3000);
-                window.dispatchEvent(new Event('db-update')); 
-
-            } catch (error) {
-                console.error("Ошибка при сбросе данных:", error);
-                showToast('Ошибка при сбросе данных. Смотрите консоль.', 5000);
-            }
-        };
-
-        window.generateReferralLink = () => {
-            const link = `https://t.me/${BOT_USERNAME}?start=ref_${telegramId}`;
-            document.getElementById('referral-link-display').textContent = link;
-            document.getElementById('copy-referral-btn').addEventListener('click', (e) => {
-                e.stopPropagation(); // Защита от всплытия
-                copyText(link, 'Ссылка скопирована!');
-            });
-        };
-
-        function copyText(text, msg) {
-            const el = document.createElement('textarea');
-            el.value = text;
-            document.body.appendChild(el);
-            el.select();
-            document.execCommand('copy');
-            document.body.removeChild(el);
-            showToast(msg);
-        }
-        window.copyVlessLink = () => {
-            const text = document.getElementById('vless-link-display').textContent.replace('КЛЮЧ:', '').trim();
-            if (text.includes('Ключ появится') || text.includes('Ключ генерируется')) return showToast('Активируйте подписку или дождитесь ключа!');
-            copyText(text, 'Ключ скопирован!');
-        };
-
-        function renderTariffs() {
-            const grid = document.getElementById('tariff-grid');
-            grid.innerHTML = TARIFFS.map((t) => `
-                <div class="tariff-card">
-                    <button class="btn tariff-btn" data-months="${t.months}" data-price="${t.price}">
-                        <i class="fas fa-calendar"></i>
-                        ${t.months} мес.
-                        <span style="font-weight: bold; font-size: 1.1em;">${t.price.toFixed(2).replace('.', ',')} ₽</span>
-                        ${t.description ? `<span style="font-size: 0.8em; opacity: 0.8;">(${t.description})</span>` : ''}
-                    </button>
-                </div>
-            `).join('');
-
-            document.querySelectorAll('.tariff-btn').forEach(button => {
-                button.addEventListener('click', (e) => {
-                    e.stopPropagation(); // Защита от всплытия
-                    const months = parseInt(e.currentTarget.getAttribute('data-months'));
-                    const price = parseFloat(e.currentTarget.getAttribute('data-price'));
-                    buySubscription(months, price);
-                });
-            });
-        }
-
-        function buySubscription(months, price) {
-            if (telegramId === 'DEV_USER') return showToast('Запустите через Telegram');
-            
-            // !!! ИСПРАВЛЕНИЕ: Вызов защищен runProtectedAction !!!
-            runProtectedAction(() => {
-                const comment = `Оплата_${months}мес_TGID_${telegramId}_Shinobu`;
-                const url = `https://yoomoney.ru/quickpay/confirm.xml?receiver=${YOOMONEY_RECIPIENT_ID}&quickpay-form=shop&targets=Shinobu+Proxy+${months}мес&sum=${price.toFixed(2)}&comment=${encodeURIComponent(comment)}&paymentType=AC`;
-                
-                openLink(url);
-                showToast('Переход на YooMoney...');
-            });
-        }
-
-        function renderDownloadButtons() {
-            const grid = document.getElementById('download-grid');
-            grid.innerHTML = Object.values(DOWNLOAD_LINKS).map(i => `
-                <button class="btn download-btn" data-url="${i.url}">
-                    <i class="${i.icon}"></i> ${i.name}
-                </button>
-            `).join('');
-
-            document.querySelectorAll('.download-btn').forEach(button => {
-                button.addEventListener('click', (e) => {
-                    e.stopPropagation(); // Защита от всплытия
-                    openLink(e.currentTarget.getAttribute('data-url'));
-                });
-            });
-        }
-
-        function renderInstructionButtons() {
-            const grid = document.getElementById('instructions-grid');
-            grid.innerHTML = Object.values(INSTRUCTION_LINKS).map(i => `
-                <button class="btn instruction-btn" data-url="${i.url}">
-                    <i class="${i.icon}"></i> ${i.name}
-                </button>
-            `).join('');
-
-            document.querySelectorAll('.instruction-btn').forEach(button => {
-                button.addEventListener('click', (e) => {
-                    e.stopPropagation(); // Защита от всплытия
-                    openLink(e.currentTarget.getAttribute('data-url'));
-                });
-            });
-        }
-
-        // !!! ИСПРАВЛЕНИЕ: Универсальная функция открытия ссылок защищена runProtectedAction !!!
-        window.openLink = (url) => {
-            runProtectedAction(() => {
-                if (tg?.openLink) {
-                    tg.openLink(url);
-                } else {
-                    window.open(url, '_blank');
-                }
-            });
-        };
 
         window.showToast = (msg, dur = 3000) => {
             const toast = document.createElement('div');
