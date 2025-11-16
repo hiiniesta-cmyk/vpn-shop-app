@@ -311,9 +311,9 @@
 
         const TARIFFS = [
             { months: 1, price: 103.10 },
-            { months: 2, price: 206.19 },
-            { months: 3, price: 309.28 },
-            { months: 6, price: 618.56 }
+            { months: 2, price: 206.19, description: 'Выгодно' },
+            { months: 3, price: 309.28, description: 'Экономия' },
+            { months: 6, price: 618.56, description: 'Супер-экономия' }
         ];
 
         // АДАПТЕР/ЗАГЛУШКА FIREBASE ДЛЯ ВАШЕГО SQLITE API
@@ -340,6 +340,7 @@
                         body: JSON.stringify(payload)
                     });
                     if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+                    // Диспетчер событий здесь помогает слушателю onSnapshot
                     window.dispatchEvent(new Event('db-update'));
                 } catch (error) {
                     console.error("Ошибка при отправке данных в API:", error);
@@ -420,14 +421,18 @@
             const btn = e.target.closest("button, a"); 
             if (!btn) return;
             
-            // 2. САМОЕ ВАЖНОЕ: Останавливаем всплытие события, чтобы Telegram не дублировал его.
+            // 2. Останавливаем всплытие события, чтобы Telegram не дублировал его.
             e.stopPropagation(); 
             
             // 3. Агрессивная защита: Отключаем кнопку на время выполнения действия
             const DEBOUNCE_TIME = 500;
             if (btn.disabled) return; 
             btn.disabled = true;
+            
+            // Функции действия выполняются ниже, после чего кнопка включается обратно.
+            // Используем setTimeout для включения кнопки обратно, даже если действие асинхронное
             setTimeout(() => { btn.disabled = false; }, DEBOUNCE_TIME);
+
 
             // 4. Логика по делегированию (проверяем классы/ID)
             
@@ -446,11 +451,13 @@
 
             // Кнопка активации триала
             else if (btn.id === 'start-trial-btn') {
+                // Поскольку startTrial - асинхронная, мы запускаем ее
                 startTrial();
             }
 
             // Кнопка сброса данных (DEV)
             else if (btn.id === 'reset-data-btn') {
+                // Поскольку resetUserData - асинхронная, мы запускаем ее
                 resetUserData();
             }
 
@@ -472,7 +479,7 @@
         });
 
         // ==========================================================
-        // --- ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ (без индивидуальных addEventListener) ---
+        // --- ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ (с принудительным обновлением UI) ---
         // ==========================================================
         
         function toggleTheme() {
@@ -483,11 +490,19 @@
             localStorage.setItem('theme', body.classList.contains('light-theme') ? 'light' : 'dark');
         }
 
+        /**
+         * Активирует пробный период и принудительно обновляет UI.
+         */
         window.startTrial = async () => {
+            // Ждём завершения записи в базу данных
             await window.firestore.setDoc(null, {
                 status: 'active',
                 trial_used: true,
             }, { merge: true });
+            
+            // ЯВНЫЙ вызов события для немедленной проверки статуса (Исправляет проблему с UI)
+            window.dispatchEvent(new Event('db-update')); 
+
             showToast('Пробный период активирован! Ваш ключ генерируется.');
         };
         
@@ -563,7 +578,6 @@
                     </button>
                 </div>
             `).join('');
-            // УДАЛЕНО: document.querySelectorAll('.tariff-btn').forEach(button => { ... });
         }
 
         function renderDownloadButtons() {
@@ -573,7 +587,6 @@
                     <i class="${i.icon}"></i> ${i.name}
                 </button>
             `).join('');
-            // УДАЛЕНО: document.querySelectorAll('.download-btn').forEach(button => { ... });
         }
 
         function renderInstructionButtons() {
@@ -583,10 +596,9 @@
                     <i class="${i.icon}"></i> ${i.name}
                 </button>
             `).join('');
-            // УДАЛЕНО: document.querySelectorAll('.instruction-btn').forEach(button => { ... });
         }
         
-        // --- ФУНКЦИЯ ДЛЯ УВЕДОМЛЕНИЙ И СЛУШАТЕЛЬ СТАТУСА ---
+        // --- СЛУШАТЕЛЬ СТАТУСА ---
         
         window.startSubscriptionListener = async function() {
             const indicator = document.getElementById('status-indicator');
@@ -625,10 +637,8 @@
                             </button>
                         ` : ''}
                     `;
-                    // Сброс обработчика не нужен, он ловится делегатом
                 } else {
                     trialCard.innerHTML = `<button class="btn btn-primary" id="start-trial-btn"><i class="fas fa-gift"></i> Активировать ${TRIAL_DAYS} дня бесплатно</button>`;
-                    // Обработчик ловится делегатом
                 }
 
                 window.updateReferralUI(data.invited_count || 0);
