@@ -6,12 +6,12 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    <title>Shinobu Proxy - Безопасный Proxy для России v2.4</title>
+    <title>Shinobu Proxy v2.6</title>
     <script src="https://telegram.org/js/telegram-web-app.js?v=2.2"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 
     <style>
-        /* General Reset and Base Styles */
+        /* --- General Reset and Base Styles --- */
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -24,20 +24,35 @@
         }
         body.light-theme { background: #f5f7fa; color: #2d3748; }
 
-        /* Theme Toggle Button */
-        .theme-toggle {
-            position: fixed; top: 20px; right: 20px; width: 60px; height: 60px;
+        /* --- Control Buttons (Theme & Lang) --- */
+        .controls-container {
+            position: fixed; top: 20px; right: 20px;
+            display: flex; gap: 10px; z-index: 1000;
+        }
+
+        .control-btn {
+            width: 50px; height: 50px;
             background: rgba(0, 212, 255, 0.15); border: 2px solid rgba(0, 212, 255, 0.5);
             border-radius: 50%; cursor: pointer; display: flex; align-items: center;
-            justify-content: center; font-size: 1.5em; backdrop-filter: blur(10px);
-            transition: all 0.3s ease; z-index: 1000; animation: fadeIn 1s ease-out;
-            box-shadow: 0 0 15px rgba(0, 212, 255, 0.5);
+            justify-content: center; font-size: 1.2em; backdrop-filter: blur(10px);
+            transition: all 0.3s ease; color: #e0e0e0;
+            box-shadow: 0 0 15px rgba(0, 212, 255, 0.3);
         }
-        .theme-toggle:hover { background: rgba(0, 212, 255, 0.25); transform: scale(1.1) rotate(15deg); box-shadow: 0 0 30px rgba(0, 212, 255, 0.8); }
-        body.light-theme .theme-toggle { background: rgba(0, 123, 255, 0.1); border-color: rgba(0, 123, 255, 0.5); box-shadow: 0 0 10px rgba(0, 123, 255, 0.3); }
-        body.light-theme .theme-toggle:hover { background: rgba(0, 123, 255, 0.2); box-shadow: 0 0 20px rgba(0, 123, 255, 0.4); }
+        .control-btn:hover { 
+            background: rgba(0, 212, 255, 0.25); 
+            transform: scale(1.1); 
+            box-shadow: 0 0 25px rgba(0, 212, 255, 0.6); 
+        }
+        
+        body.light-theme .control-btn { 
+            background: rgba(0, 123, 255, 0.1); 
+            border-color: rgba(0, 123, 255, 0.5); 
+            color: #2d3748;
+            box-shadow: 0 0 10px rgba(0, 123, 255, 0.3); 
+        }
+        body.light-theme .control-btn:hover { background: rgba(0, 123, 255, 0.2); }
 
-        /* Background Effects */
+        /* --- Background Effects --- */
         .grid-background {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background-image: linear-gradient(rgba(0, 212, 255, 0.05) 1px, transparent 1px),
@@ -57,13 +72,14 @@
         body.light-theme .orb1 { background: radial-gradient(circle, rgba(0, 123, 255, 0.4), transparent); }
         body.light-theme .orb2 { background: radial-gradient(circle, rgba(99, 102, 241, 0.35), transparent); }
         body.light-theme .orb3 { background: radial-gradient(circle, rgba(236, 72, 153, 0.3), transparent); }
+        
         @keyframes orbFloat1 { 0%, 100% { transform: translate(0, 0) scale(1); } 33% { transform: translate(100px, 150px) scale(1.2); } 66% { transform: translate(-50px, 100px) scale(0.8); } }
         @keyframes orbFloat2 { 0%, 100% { transform: translate(0, 0) scale(1); } 33% { transform: translate(-100px, -100px) scale(1.1); } 66% { transform: translate(50px, -150px) scale(0.9); } }
         @keyframes orbFloat3 { 0%, 100% { transform: translate(-50%, -50%) scale(1); } 50% { transform: translate(calc(-50% + 200px), calc(-50% - 100px)) scale(1.3); } }
 
         .container { max-width: 1200px; margin: 0 auto; padding: 20px; position: relative; z-index: 1; padding-top: 0; }
 
-        /* Header & Logo */
+        /* --- Header & Logo --- */
         header { text-align: center; padding: 60px 20px 20px; animation: fadeInDown 0.8s ease-out; }
         .logo {
             font-size: 2.8em; font-weight: bold;
@@ -74,63 +90,30 @@
         }
         @keyframes gradientShift { 0%, 100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
         @keyframes glowPulse { 0%, 100% { filter: drop-shadow(0 0 25px rgba(0, 212, 255, 0.8)); } 50% { filter: drop-shadow(0 0 45px rgba(123, 44, 191, 1.0)); } }
+        
         .tagline { font-size: 1.2em; color: #b0b0b0; margin-bottom: 30px; animation: fadeIn 1s ease-out 0.3s backwards; }
         body.light-theme .tagline { color: #2d3748; }
 
-        /* НОВЫЕ СТИЛИ ДЛЯ АВАТАРА */
+        /* --- User Info --- */
         .user-info-header {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 20px;
-            padding-bottom: 20px;
+            display: flex; align-items: center; justify-content: center; gap: 20px; padding-bottom: 20px;
             animation: fadeIn 0.8s ease-out;
         }
         .user-avatar {
-            width: 80px;
-            height: 80px;
-            border-radius: 50%;
-            background: #7b2cbf; /* Надежный цвет фона */
-            color: white; /* Цвет иконки/текста */
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 3em; /* Размер иконки */
-            border: 4px solid #00d4ff;
+            width: 80px; height: 80px; border-radius: 50%;
+            background: #7b2cbf; color: white;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 3em; border: 4px solid #00d4ff;
             box-shadow: 0 0 15px rgba(0, 212, 255, 0.5);
-            /* Стиль для инициалов (если они отображаются) */
-            font-weight: bold;
-            font-size: 2em; 
-            line-height: 1;
+            font-weight: bold; font-size: 2em; line-height: 1;
         }
-        .user-avatar i {
-            /* Убедимся, что иконка четко центрирована */
-            line-height: 1;
-        }
-        .user-details {
-            text-align: left;
-        }
-        .user-details h3 {
-            font-size: 1.5em;
-            color: #00d4ff;
-            margin-bottom: 5px;
-        }
-        .user-details p {
-            font-size: 0.9em;
-            opacity: 0.8;
-        }
-        body.light-theme .user-avatar {
-            background: #007bff;
-            border-color: #007bff;
-            box-shadow: 0 0 10px rgba(0, 123, 255, 0.3);
-        }
-        body.light-theme .user-details h3 {
-            color: #007bff;
-        }
-        /* КОНЕЦ НОВЫХ СТИЛЕЙ */
+        .user-details { text-align: left; }
+        .user-details h3 { font-size: 1.5em; color: #00d4ff; margin-bottom: 5px; }
+        .user-details p { font-size: 0.9em; opacity: 0.8; }
+        body.light-theme .user-avatar { background: #007bff; border-color: #007bff; box-shadow: 0 0 10px rgba(0, 123, 255, 0.3); }
+        body.light-theme .user-details h3 { color: #007bff; }
 
-
-        /* Navigation Menu Styles */
+        /* --- Navigation --- */
         .nav-tabs {
             display: flex; justify-content: center; gap: 10px; margin-top: 20px;
             padding-bottom: 20px; border-bottom: 1px solid rgba(0, 212, 255, 0.2);
@@ -143,27 +126,16 @@
             display: flex; align-items: center; gap: 6px;
         }
         .nav-btn:hover { color: #00d4ff; }
-        .nav-btn.active {
-            border-color: #00d4ff; background: rgba(0, 212, 255, 0.1);
-            color: #00d4ff;
-        }
+        .nav-btn.active { border-color: #00d4ff; background: rgba(0, 212, 255, 0.1); color: #00d4ff; }
         body.light-theme .nav-btn { color: #5a67d8; }
         body.light-theme .nav-btn.active { border-color: #007bff; background: rgba(0, 123, 255, 0.1); color: #007bff; }
 
-        /* Section Visibility Control */
-        main section {
-            display: none; /* Скрываем все секции по умолчанию */
-            padding: 20px 0;
-            animation: fadeIn 0.5s ease-out;
-        }
-        main section.active {
-            display: block; /* Показываем только активную секцию */
-        }
+        /* --- Sections & Cards --- */
+        main section { display: none; padding: 20px 0; animation: fadeIn 0.5s ease-out; }
+        main section.active { display: block; }
 
-        /* Section Titles */
         .section-title {
-            font-size: 2.5em; font-weight: 700;
-            text-align: center; margin: 40px 0 20px;
+            font-size: 2.5em; font-weight: 700; text-align: center; margin: 40px 0 20px;
             background: linear-gradient(90deg, #00d4ff, #7b2cbf);
             -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
             filter: drop-shadow(0 0 10px rgba(0, 212, 255, 0.4));
@@ -172,102 +144,70 @@
         }
         body.light-theme .section-title { background: none; -webkit-text-fill-color: #007bff; color: #007bff; filter: none; }
         
-        /* Subtitles for Instructions */
         .section-title-h3 {
-            font-size: 1.8em;
-            font-weight: 700;
-            text-align: center;
-            margin: 30px 0 15px;
-            color: #00d4ff;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 12px;
+            font-size: 1.8em; font-weight: 700; text-align: center; margin: 30px 0 15px;
+            color: #00d4ff; display: flex; align-items: center; justify-content: center; gap: 12px;
             animation: fadeInDown 0.8s ease-out;
         }
         body.light-theme .section-title-h3 { color: #007bff; }
 
-        /* Card Styles */
         .card {
-            background: rgba(30, 0, 50, 0.4);
-            border: 2px solid #7b2cbf;
+            background: rgba(30, 0, 50, 0.4); border: 2px solid #7b2cbf;
             padding: 25px; border-radius: 15px; backdrop-filter: blur(5px);
             box-shadow: 0 0 25px rgba(123, 44, 191, 0.5), 0 4px 15px rgba(0, 0, 0, 0.4);
-            transition: all 0.3s ease;
-            animation: fadeInUp 0.8s ease-out;
+            transition: all 0.3s ease; animation: fadeInUp 0.8s ease-out;
         }
-        .card:hover {
-            border-color: #00d4ff;
-            box-shadow: 0 0 35px rgba(0, 212, 255, 0.6), 0 4px 20px rgba(0, 0, 0, 0.6);
-        }
-        body.light-theme .card { 
-            background: #ffffff; 
-            border-color: #007bff; 
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1); 
-        }
-        body.light-theme .card:hover {
-            box-shadow: 0 4px 20px rgba(0, 123, 255, 0.2);
-        }
+        .card:hover { border-color: #00d4ff; box-shadow: 0 0 35px rgba(0, 212, 255, 0.6), 0 4px 20px rgba(0, 0, 0, 0.6); }
+        body.light-theme .card { background: #ffffff; border-color: #007bff; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1); }
+        body.light-theme .card:hover { box-shadow: 0 4px 20px rgba(0, 123, 255, 0.2); }
 
-        /* Buttons */
+        /* --- Buttons & Inputs --- */
         .btn {
             padding: 15px 30px; 
             background: linear-gradient(45deg, rgba(0, 212, 255, 0.1), rgba(123, 44, 191, 0.1));
-            border: 2px solid #00d4ff;
-            color: #00d4ff; font-weight: 600; border-radius: 50px; cursor: pointer;
-            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); position: relative; overflow: hidden;
+            border: 2px solid #00d4ff; color: #00d4ff; font-weight: 600; 
+            border-radius: 50px; cursor: pointer; transition: all 0.4s; position: relative; overflow: hidden;
             display: flex; align-items: center; justify-content: center; gap: 8px; text-decoration: none;
-            box-shadow: 0 0 5px rgba(0, 212, 255, 0.3);
-            text-align: center;
+            box-shadow: 0 0 5px rgba(0, 212, 255, 0.3); text-align: center;
         }
         .btn:hover { 
             background: linear-gradient(45deg, rgba(0, 212, 255, 0.3), rgba(123, 44, 191, 0.3));
-            box-shadow: 0 0 40px rgba(0, 212, 255, 0.8); 
-            transform: translateY(-3px) scale(1.02); 
-            border-color: #7b2cbf;
+            box-shadow: 0 0 40px rgba(0, 212, 255, 0.8); transform: translateY(-3px) scale(1.02); border-color: #7b2cbf;
         }
-        /* Стиль для отключенной кнопки */
-        .btn:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-            transform: none !important;
-            box-shadow: none !important;
+        .btn:disabled, .btn.disabled {
+            opacity: 0.6; cursor: not-allowed; filter: grayscale(1);
+            transform: none !important; box-shadow: none !important;
         }
-
         body.light-theme .btn { background: rgba(0, 123, 255, 0.15); border-color: rgba(0, 123, 255, 0.6); color: #0056b3; box-shadow: none; }
         body.light-theme .btn:hover { background: rgba(0, 123, 255, 0.25); box-shadow: 0 4px 15px rgba(0, 123, 255, 0.3); }
 
-        .btn-primary { 
-            background: linear-gradient(90deg, #00d4ff, #7b2cbf); 
-            border-color: white; 
-            color: white;
-            box-shadow: 0 0 20px rgba(0, 212, 255, 0.7);
-        }
+        .btn-primary { background: linear-gradient(90deg, #00d4ff, #7b2cbf); border-color: white; color: white; box-shadow: 0 0 20px rgba(0, 212, 255, 0.7); }
         body.light-theme .btn-primary { background: #007bff; color: #fff; border-color: #0056b3; box-shadow: 0 4px 15px rgba(0, 123, 255, 0.4); }
 
-        /* VLESS Container */
+        /* Кнопка продления (акцентная) */
+        .btn-renew {
+            background: linear-gradient(45deg, #ff006e, #7b2cbf);
+            color: white; border: none; width: 100%; margin-top: 15px;
+            animation: pulse 2s infinite;
+        }
+        .btn-renew:hover { box-shadow: 0 0 25px rgba(255, 0, 110, 0.6); }
+        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.02); } 100% { transform: scale(1); } }
+
+        /* --- Misc Elements --- */
         .vless-container { 
             display: flex; gap: 10px; align-items: center; padding: 15px; 
-            background: rgba(0, 212, 255, 0.1); 
-            border: 1px solid #00d4ff; 
-            border-radius: 10px;
+            background: rgba(0, 212, 255, 0.1); border: 1px solid #00d4ff; border-radius: 10px;
             box-shadow: 0 0 10px rgba(0, 212, 255, 0.4);
         }
         .vless-link-box { flex: 1; font-family: monospace; font-size: 0.85em; word-break: break-all; }
-        .vless-copy-btn { 
-            background: #2b6cb0; color: white; border: none; 
-            box-shadow: 0 0 5px #2b6cb0; 
-        }
-        .vless-copy-btn:hover {
-            box-shadow: 0 0 15px #00d4ff;
-        }
-
+        
         .grid-2 { display: grid; gap: 15px; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
         .grid-4 { display: grid; gap: 15px; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); }
 
         .status-indicator { padding: 6px 16px; border-radius: 8px; font-weight: bold; font-size: 0.9em; }
         .status-active { background: #38a169; color: white; }
         .status-inactive { background: #e53e3e; color: white; }
+        .status-warning { background: #d69e2e; color: white; } /* Желтый для скорого истечения */
 
         .warning-card {
             background: rgba(255, 193, 7, 0.1); border: 1px dashed #ffc107; padding: 15px;
@@ -280,7 +220,29 @@
             padding: 3px 8px; font-size: 10px; border-radius: 3px; z-index: 10000;
         }
 
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        /* --- Modal --- */
+        #payment-modal {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.7); backdrop-filter: blur(5px); z-index: 2000;
+            display: none; justify-content: center; align-items: center;
+        }
+
+        /* --- Toast Notifications --- */
+        .toast-container {
+            position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+            z-index: 10001; display: flex; flex-direction: column; gap: 10px; align-items: center;
+        }
+        .toast {
+            padding: 12px 24px; border-radius: 12px; font-size: 0.95em; color: white;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.4); display: flex; align-items: center; gap: 10px;
+            animation: fadeIn 0.3s ease-out; backdrop-filter: blur(5px); min-width: 250px; justify-content: center;
+        }
+        .toast-success { background: rgba(56, 161, 105, 0.95); border: 1px solid #38a169; }
+        .toast-error { background: rgba(229, 62, 62, 0.95); border: 1px solid #e53e3e; }
+        .toast-info { background: rgba(49, 130, 206, 0.95); border: 1px solid #3182ce; }
+        
+        /* --- Animations --- */
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes fadeInDown { from { opacity: 0; transform: translateY(-30px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes fadeInUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
 
@@ -288,15 +250,22 @@
             .grid-4 { grid-template-columns: 1fr 1fr; }
             .logo { font-size: 2em; }
             .section-title { font-size: 2em; }
-            .section-title-h3 { font-size: 1.5em; }
         }
     </style>
 </head>
 <body>
-    <div class="version-tag">v2.4</div>
-    <button class="theme-toggle" id="theme-toggle-btn" aria-label="Переключить тему">
-        <span class="theme-icon">Moon</span>
-    </button>
+    <div class="version-tag">v2.6</div>
+    
+    <div class="controls-container">
+        <button class="control-btn" id="lang-toggle-btn" aria-label="Change Language">
+            <span class="lang-text">RU</span>
+        </button>
+        <button class="control-btn" id="theme-toggle-btn" aria-label="Toggle Theme">
+            <span class="theme-icon"><i class="fas fa-moon"></i></span>
+        </button>
+    </div>
+
+    <div id="toast-container-box" class="toast-container"></div>
 
     <div class="grid-background"></div>
     <div class="orb orb1"></div>
@@ -307,7 +276,7 @@
         
         <header>
             <div class="logo">Shinobu Proxy</div>
-            <div class="tagline">Ваша приватность — наш приоритет</div>
+            <div class="tagline" data-i18n="tagline">Ваша приватность — наш приоритет</div>
         </header>
 
         <div class="user-info-header">
@@ -315,119 +284,230 @@
                 <i class="fas fa-user"></i>
             </div>
             <div class="user-details">
-                <h3 id="user-full-name">Пользователь</h3>
-                <p>ID: <span id="telegram-id-display">Загрузка...</span></p>
-                <p>Username: <span id="username-display">Загрузка...</span></p>
+                <h3 id="user-full-name">Loading...</h3>
+                <p>ID: <span id="telegram-id-display">...</span></p>
+                <p>Username: <span id="username-display">...</span></p>
             </div>
         </div>
+
         <nav class="nav-tabs">
-            <button class="nav-btn active" data-target="profile"><i class="fas fa-user"></i> Профиль</button>
-            <button class="nav-btn" data-target="billing"><i class="fas fa-wallet"></i> Оплата</button>
-            <button class="nav-btn" data-target="instructions"><i class="fas fa-mobile-alt"></i> Настройка</button>
-            <button class="nav-btn" data-target="referral"><i class="fas fa-users"></i> Рефералка</button>
+            <button class="nav-btn active" data-target="profile">
+                <i class="fas fa-user"></i> <span data-i18n="nav_profile">Профиль</span>
+            </button>
+            <button class="nav-btn" data-target="billing">
+                <i class="fas fa-wallet"></i> <span data-i18n="nav_billing">Оплата</span>
+            </button>
+            <button class="nav-btn" data-target="instructions">
+                <i class="fas fa-mobile-alt"></i> <span data-i18n="nav_setup">Настройка</span>
+            </button>
+            <button class="nav-btn" data-target="referral">
+                <i class="fas fa-users"></i> <span data-i18n="nav_referral">Рефералка</span>
+            </button>
         </nav>
         
         <main>
             <section id="profile" class="active"> 
-                <h2 class="section-title"><i class="fas fa-key"></i> Ваш Статус и Ключ</h2>
+                <h2 class="section-title"><i class="fas fa-key"></i> <span data-i18n="title_status">Ваш Статус</span></h2>
                 <div class="card">
                     
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 1px solid rgba(123, 44, 191, 0.3);">
-                        <h3>Ваш Баланс:</h3>
+                        <h3 data-i18n="balance_label">Ваш Баланс:</h3>
                         <div style="font-size: 1.5em; font-weight: bold; color: #00d4ff;" id="user-balance-display">0,00 ₽</div>
                     </div>
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                        <h3>Текущий статус:</h3>
-                        <div id="status-indicator" class="status-indicator status-inactive">Загрузка</div>
+                        <h3 data-i18n="status_label">Текущий статус:</h3>
+                        <div id="status-indicator" class="status-indicator status-inactive" data-i18n="loading">Загрузка</div>
                     </div>
                     <div id="status-info" style="line-height: 1.6;">
-                        <p>Дата истечения: <span id="expiry-date">...</span></p>
-                        <p>Пользователь: <span id="firebase-user-id">...</span></p>
+                        <p><span data-i18n="expiry_label">Дата истечения:</span> <span id="expiry-date">...</span></p>
                     </div>
-                    <div id="vless-container" class="vless-container">
-                        <div class="vless-link-box" id="vless-link-display">Загрузка ключа...</div>
-                        <button class="btn vless-copy-btn" id="copy-vless-btn"><i class="fas fa-copy"></i> Копировать</button>
+
+                    <div id="renew-container" style="display: none; margin-top: 15px; padding-top: 15px; border-top: 1px solid rgba(255,255,255,0.1);">
+                        <button class="btn btn-renew nav-btn-proxy" data-target-tab="billing">
+                            <i class="fas fa-sync-alt"></i> <span data-i18n="renew_btn">Продлить подписку</span>
+                        </button>
+                    </div>
+
+                    <div id="vless-container" class="vless-container" style="margin-top: 20px;">
+                        <div class="vless-link-box" id="vless-link-display" data-i18n="loading_key">Загрузка ключа...</div>
+                        <button class="btn vless-copy-btn" id="copy-vless-btn">
+                            <i class="fas fa-copy"></i> <span data-i18n="copy_btn">Копировать</span>
+                        </button>
                     </div>
                 </div>
 
-                <h2 class="section-title"><i class="fas fa-gift"></i> Пробный Период</h2>
-                <div class="card" id="trial-card-status" style="text-align: center;">Загрузка...</div>
+                <h2 class="section-title"><i class="fas fa-gift"></i> <span data-i18n="title_trial">Пробный Период</span></h2>
+                <div class="card" id="trial-card-status" style="text-align: center;" data-i18n="loading">Загрузка...</div>
             </section>
             
             <section id="billing">
-                <h2 class="section-title"><i class="fas fa-wallet"></i> Тарифы и Оплата (YooMoney)</h2>
+                <h2 class="section-title"><i class="fas fa-wallet"></i> <span data-i18n="title_tariffs">Тарифы и Оплата</span></h2>
                 <div class="grid grid-2" id="tariff-grid"></div>
                 <div class="card warning-card">
-                    <p><strong>ВНИМАНИЕ:</strong> После оплаты вернитесь в чат с ботом.<br>Активация — до 5 минут.</p>
+                    <p data-i18n="payment_warning"><strong>ВНИМАНИЕ:</strong> После оплаты вернитесь в чат с ботом. Активация — до 5 минут.</p>
                 </div>
             </section>
             
             <section id="referral">
-                <h2 class="section-title"><i class="fas fa-users"></i> Реферальная Программа</h2>
+                <h2 class="section-title"><i class="fas fa-users"></i> <span data-i18n="title_referral">Реферальная Программа</span></h2>
                 <div class="card">
-                    <h3 id="invited-count-display" style="color: #00d4ff; text-align: center; margin-bottom: 15px;">Приглашено: 0</h3>
-                    <p style="font-size: 0.95em; margin-bottom: 15px;">Приглашайте друзей — вы оба получите бонус!</p>
+                    <h3 id="invited-count-display" style="color: #00d4ff; text-align: center; margin-bottom: 15px;">
+                        <span data-i18n="invited_text">Приглашено:</span> 0
+                    </h3>
+                    <p style="font-size: 1.1em; margin-bottom: 20px; text-align: center; color: #e0e0e0;" data-i18n="referral_desc">
+                        Приглашайте друзей — +10 дней подписки тебе и другу!
+                    </p>
                     <div class="vless-container" style="background: rgba(123, 44, 191, 0.1); border: 1px solid #7b2cbf; box-shadow: 0 0 10px rgba(123, 44, 191, 0.4);">
-                        <div class="vless-link-box" id="referral-link-display">Загрузка...</div>
-                        <button class="btn vless-copy-btn" id="copy-referral-btn" style="background: #7b2cbf;"><i class="fas fa-copy"></i> Копировать</button>
+                        <div class="vless-link-box" id="referral-link-display">...</div>
+                        <button class="btn vless-copy-btn" id="copy-referral-btn" style="background: #7b2cbf;">
+                            <i class="fas fa-copy"></i> <span data-i18n="copy_btn">Копировать</span>
+                        </button>
                     </div>
                 </div>
             </section>
 
             <section id="instructions">
-                <h2 class="section-title"><i class="fas fa-mobile-alt"></i> Подключение и Инструкции</h2>
+                <h2 class="section-title"><i class="fas fa-mobile-alt"></i> <span data-i18n="title_setup">Настройка</span></h2>
 
                 <h3 class="section-title-h3">
-                    <i class="fas fa-download"></i> Скачать приложение
+                    <i class="fas fa-download"></i> <span data-i18n="subtitle_download">Скачать приложение</span>
                 </h3>
                 <div class="grid grid-4" id="download-grid"></div>
 
                 <h3 class="section-title-h3">
-                    <i class="fas fa-book"></i> Инструкции по настройке
+                    <i class="fas fa-book"></i> <span data-i18n="subtitle_instructions">Инструкции</span>
                 </h3>
                 <div class="grid grid-4" id="instructions-grid"></div>
             </section>
         </main>
     </div>
     
-    <div id="payment-modal" style="
-        position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-        background: rgba(0, 0, 0, 0.7); backdrop-filter: blur(5px); z-index: 2000;
-        display: none; justify-content: center; align-items: center;
-    ">
-        <div class="card" style="
-            max-width: 450px; width: 90%; padding: 30px; 
-            animation: fadeIn 0.3s ease-out; transform: scale(0.95);
-            transition: transform 0.3s ease;
-        " id="payment-modal-content">
+    <div id="payment-modal">
+        <div class="card" id="payment-modal-content" style="max-width: 450px; width: 90%; padding: 30px; transform: scale(0.95); transition: transform 0.3s ease;">
             <h3 style="text-align: center; color: #00d4ff; margin-bottom: 20px;">
-                <i class="fas fa-credit-card"></i> Оплата подписки
+                <i class="fas fa-credit-card"></i> <span data-i18n="modal_title">Оплата подписки</span>
             </h3>
-            <div id="modal-tariff-info" style="font-size: 1.1em; margin-bottom: 20px; line-height: 1.5;">
-                </div>
+            <div id="modal-tariff-info" style="font-size: 1.1em; margin-bottom: 20px; line-height: 1.5;"></div>
             
             <div class="warning-card" style="margin-bottom: 20px;">
-                <p><strong>ВНИМАНИЕ!</strong> После оплаты ОБЯЗАТЕЛЬНО вернитесь в чат с ботом.<br>Активация — до 5 минут.</p>
+                <p data-i18n="modal_warning"><strong>ВНИМАНИЕ!</strong> После оплаты ОБЯЗАТЕЛЬНО вернитесь в чат с ботом.</p>
             </div>
             
             <div style="display: flex; gap: 10px; flex-direction: column;">
                 <button class="btn btn-primary" id="go-to-yoomoney-btn" style="width: 100%;" data-url="">
-                    <i class="fas fa-external-link-alt"></i> Перейти к оплате
+                    <i class="fas fa-external-link-alt"></i> <span data-i18n="modal_pay_btn">Перейти к оплате</span>
                 </button>
                 <button class="btn" id="close-modal-btn" style="background: rgba(123, 44, 191, 0.2); border-color: #7b2cbf; color: #7b2cbf; width: 100%;">
-                    <i class="fas fa-times"></i> Закрыть
+                    <i class="fas fa-times"></i> <span data-i18n="modal_close_btn">Закрыть</span>
                 </button>
             </div>
         </div>
     </div>
 
     <script>
-        let tg = null, telegramId = null, userId = null, isInTelegram = false;
+        // --- Configuration & State ---
+        let tg = null, telegramId = null, userId = null;
+        let currentLang = localStorage.getItem('lang') || 'ru';
+        let isProcessing = false; // Anti-spam lock
+
         const YOOMONEY_RECIPIENT_ID = '4100119271147598';
         const BOT_USERNAME = 'ShinobuProxyBot';
         const TRIAL_DAYS = 3;
-        
         let API_BASE = localStorage.getItem('shinobu_api_base') || 'http://127.0.0.1:5000/api';
+
+        // --- Translations ---
+        const TRANSLATIONS = {
+            ru: {
+                tagline: "Ваша приватность — наш приоритет",
+                nav_profile: "Профиль", nav_billing: "Оплата", nav_setup: "Настройка", nav_referral: "Рефералка",
+                title_status: "Ваш Статус и Ключ", balance_label: "Ваш Баланс:", status_label: "Текущий статус:",
+                expiry_label: "Дата истечения:", loading: "Загрузка", loading_key: "Загрузка ключа...", copy_btn: "Копировать",
+                title_trial: "Пробный Период", title_tariffs: "Тарифы и Оплата",
+                payment_warning: "ВНИМАНИЕ: После оплаты вернитесь в чат с ботом. Активация — до 5 минут.",
+                title_referral: "Реферальная Программа", invited_text: "Приглашено:",
+                // Updated Referral Text
+                referral_desc: "Приглашайте друзей — +10 дней подписки тебе и другу!",
+                title_setup: "Подключение", subtitle_download: "Скачать приложение", subtitle_instructions: "Инструкции",
+                modal_title: "Оплата подписки", modal_warning: "ВНИМАНИЕ! После оплаты ОБЯЗАТЕЛЬНО вернитесь в чат с ботом.",
+                modal_pay_btn: "Перейти к оплате", modal_close_btn: "Закрыть",
+                status_active: "Активна", status_inactive: "Неактивна", status_expired: "Истекла",
+                trial_btn: "Активировать 3 дня бесплатно", trial_used: "Пробный период использован",
+                month_1: "месяц", month_few: "месяца", month_many: "месяцев",
+                key_active: "КЛЮЧ:", key_inactive: "Ключ появится после активации",
+                // New Translations
+                renew_btn: "Продлить подписку", 
+                processing: "Обработка...",
+                copied: "Скопировано!",
+                link_copied: "Ссылка скопирована!",
+                trial_success: "Пробный период активирован!"
+            },
+            en: {
+                tagline: "Your privacy is our priority",
+                nav_profile: "Profile", nav_billing: "Billing", nav_setup: "Setup", nav_referral: "Referral",
+                title_status: "Your Status & Key", balance_label: "Your Balance:", status_label: "Current Status:",
+                expiry_label: "Expiry Date:", loading: "Loading", loading_key: "Loading key...", copy_btn: "Copy",
+                title_trial: "Trial Period", title_tariffs: "Tariffs & Payment",
+                payment_warning: "ATTENTION: Return to the bot chat after payment. Activation takes up to 5 mins.",
+                title_referral: "Referral Program", invited_text: "Invited:",
+                referral_desc: "Invite friends — +10 days subscription for you and your friend!",
+                title_setup: "Connection", subtitle_download: "Download App", subtitle_instructions: "Instructions",
+                modal_title: "Subscription Payment", modal_warning: "ATTENTION! You MUST return to the bot chat after payment.",
+                modal_pay_btn: "Proceed to Payment", modal_close_btn: "Close",
+                status_active: "Active", status_inactive: "Inactive", status_expired: "Expired",
+                trial_btn: "Activate 3 days for free", trial_used: "Trial period used",
+                month_1: "month", month_few: "months", month_many: "months",
+                key_active: "KEY:", key_inactive: "Key appears after activation",
+                renew_btn: "Renew Subscription",
+                processing: "Processing...",
+                copied: "Copied!",
+                link_copied: "Link copied!",
+                trial_success: "Trial activated!"
+            },
+            de: {
+                tagline: "Ihre Privatsphäre ist unsere Priorität",
+                nav_profile: "Profil", nav_billing: "Zahlung", nav_setup: "Setup", nav_referral: "Empfehlung",
+                title_status: "Ihr Status & Schlüssel", balance_label: "Ihr Guthaben:", status_label: "Aktueller Status:",
+                expiry_label: "Ablaufdatum:", loading: "Laden", loading_key: "Lade Schlüssel...", copy_btn: "Kopieren",
+                title_trial: "Probezeit", title_tariffs: "Tarife & Zahlung",
+                payment_warning: "ACHTUNG: Kehren Sie nach der Zahlung zum Bot-Chat zurück. Aktivierung bis zu 5 Min.",
+                title_referral: "Empfehlungsprogramm", invited_text: "Eingeladen:",
+                referral_desc: "Lade Freunde ein – +10 Tage für dich und deinen Freund!",
+                title_setup: "Verbindung", subtitle_download: "App herunterladen", subtitle_instructions: "Anleitungen",
+                modal_title: "Abonnementzahlung", modal_warning: "ACHTUNG! Nach der Zahlung MÜSSEN Sie zum Bot zurückkehren.",
+                modal_pay_btn: "Zur Zahlung", modal_close_btn: "Schließen",
+                status_active: "Aktiv", status_inactive: "Inaktiv", status_expired: "Abgelaufen",
+                trial_btn: "3 Tage kostenlos aktivieren", trial_used: "Probezeit genutzt",
+                month_1: "Monat", month_few: "Monate", month_many: "Monate",
+                key_active: "SCHLÜSSEL:", key_inactive: "Schlüssel erscheint nach Aktivierung",
+                renew_btn: "Abonnement verlängern",
+                processing: "Verarbeitung...",
+                copied: "Kopiert!",
+                link_copied: "Link kopiert!",
+                trial_success: "Probezeit aktiviert!"
+            },
+            fr: {
+                tagline: "Votre vie privée est notre priorité",
+                nav_profile: "Profil", nav_billing: "Paiement", nav_setup: "Config", nav_referral: "Parrainage",
+                title_status: "Votre Statut & Clé", balance_label: "Votre Solde:", status_label: "Statut Actuel:",
+                expiry_label: "Date d'expiration:", loading: "Chargement", loading_key: "Clé en chargement...", copy_btn: "Copier",
+                title_trial: "Période d'essai", title_tariffs: "Tarifs et Paiement",
+                payment_warning: "ATTENTION : Retournez au chat bot après paiement. Activation sous 5 min.",
+                title_referral: "Programme de Parrainage", invited_text: "Invité:",
+                referral_desc: "Invitez des amis — +10 jours pour vous et votre ami !",
+                title_setup: "Connexion", subtitle_download: "Télécharger l'app", subtitle_instructions: "Instructions",
+                modal_title: "Paiement de l'abonnement", modal_warning: "ATTENTION ! Retournez IMPÉRATIVEMENT au bot après paiement.",
+                modal_pay_btn: "Procéder au paiement", modal_close_btn: "Fermer",
+                status_active: "Actif", status_inactive: "Inactif", status_expired: "Expiré",
+                trial_btn: "Activer 3 jours gratuits", trial_used: "Essai déjà utilisé",
+                month_1: "mois", month_few: "mois", month_many: "mois",
+                key_active: "CLÉ:", key_inactive: "La clé apparaît après activation",
+                renew_btn: "Renouveler l'abonnement",
+                processing: "Traitement...",
+                copied: "Copié!",
+                link_copied: "Lien copié !",
+                trial_success: "Essai activé !"
+            }
+        };
 
         const DOWNLOAD_LINKS = {
             android: { name: 'Android', icon: 'fab fa-android', url: 'https://github.com/2dust/v2rayNG/releases/download/1.10.28/v2rayNG_1.10.28-fdroid_universal.apk' },
@@ -451,7 +531,7 @@
             { months: 6, price: 618.56 }
         ];
 
-        // АДАПТЕР/ЗАГЛУШКА FIREBASE ДЛЯ ВАШЕГО SQLITE API
+        // --- Firebase Mock ---
         window.firestore = {
             doc: () => ({}),
             getDoc: async () => {
@@ -461,25 +541,25 @@
                     const data = await res.json();
                     return { exists: () => !!data.vless_key || !!data.subscription_expiry, data: () => data };
                 } catch (error) {
-                    console.error("Ошибка при получении данных от API:", error);
+                    console.error("API Error:", error);
                     return { exists: () => false, data: () => ({}) };
                 }
             },
             setDoc: async (ref, data, { merge } = {}) => {
                 try {
+                    if(data.action === 'activate_trial' && isProcessing) return;
                     const payload = data.trial_used && data.status === 'active' ? { action: 'activate_trial' } : { ...data, telegramId };
-
                     const res = await fetch(`${API_BASE}/user/${userId}`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(payload)
                     });
                     if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-                    // Диспетчер событий здесь помогает слушателю onSnapshot
                     window.dispatchEvent(new Event('db-update'));
                 } catch (error) {
-                    console.error("Ошибка при отправке данных в API:", error);
-                    showToast('Ошибка связи с сервером!', 5000);
+                    console.error("API Push Error:", error);
+                    showToast('Network error.', 'error');
+                    throw error;
                 }
             },
             onSnapshot: (ref, callback) => {
@@ -491,382 +571,379 @@
                     if (!isCancelled) setTimeout(poll, 5000);
                 };
                 poll();
-                
-                const updateListener = () => {
-                    if (!isCancelled) poll();
-                };
+                const updateListener = () => { if (!isCancelled) poll(); };
                 window.addEventListener('db-update', updateListener);
-
-                return () => { 
-                    isCancelled = true;
-                    window.removeEventListener('db-update', updateListener);
-                };
-            },
-            serverTimestamp: () => Date.now()
+                return () => { isCancelled = true; window.removeEventListener('db-update', updateListener); };
+            }
         };
 
-        // ==========================================================
-        // ГЛАВНЫЙ СЛУШАТЕЛЬ + ИНИЦИАЛИЗАЦИЯ
-        // ==========================================================
-        
+        // --- Initialization ---
         window.addEventListener('load', () => {
-            // Инициализация Telegram WebApp
             if (window.Telegram?.WebApp) { 
                 tg = window.Telegram.WebApp; 
                 tg.ready(); 
                 tg.expand(); 
-                isInTelegram = tg.initData !== ''; 
             }
             
-            // Загрузка темы
             const savedTheme = localStorage.getItem('theme');
             if (savedTheme === 'light' || (!savedTheme && window.matchMedia('(prefers-color-scheme: light)').matches)) {
                 document.body.classList.add('light-theme');
-                document.querySelector('.theme-icon').textContent = 'Sun';
-            }
-            
-            // Определение ID пользователя
-            userId = localStorage.getItem('shinobu_user_id') || 'local_' + Math.random().toString(36).substr(2, 9);
-            telegramId = tg?.initDataUnsafe?.user?.id || 'DEV_USER';
-            
-            if (telegramId === 'DEV_USER') {
-                localStorage.setItem('shinobu_user_id', userId);
-            } else {
-                userId = String(telegramId);
+                document.querySelector('.theme-icon').innerHTML = '<i class="fas fa-sun"></i>';
             }
 
-            // Чтение данных пользователя из WebApp и заполнение шапки
-            let userFirstName = 'Гость';
+            updateLanguage(currentLang);
+
+            userId = localStorage.getItem('shinobu_user_id') || 'local_' + Math.random().toString(36).substr(2, 9);
+            telegramId = tg?.initDataUnsafe?.user?.id || 'DEV_USER';
+            if (telegramId === 'DEV_USER') localStorage.setItem('shinobu_user_id', userId);
+            else userId = String(telegramId);
+
+            let userFirstName = 'User';
             let userLastName = '';
-            let userUsername = '';
+            let userUsername = 'None';
 
             if (tg?.initDataUnsafe?.user) {
                 const user = tg.initDataUnsafe.user;
-                userFirstName = user.first_name || 'Пользователь';
+                userFirstName = user.first_name || 'User';
                 userLastName = user.last_name || '';
-                userUsername = user.username ? `@${user.username}` : 'Нет';
+                userUsername = user.username ? `@${user.username}` : 'None';
                 
-                // Отображение инициалов вместо иконки (для лучшей персонализации)
                 const initials = (userFirstName[0] + (userLastName ? userLastName[0] : '')).toUpperCase().trim();
                 const avatarPlaceholder = document.getElementById('user-avatar-placeholder');
-                
-                if (initials) {
-                    avatarPlaceholder.textContent = initials;
-                } else {
-                    avatarPlaceholder.innerHTML = '<i class="fas fa-user"></i>';
-                }
+                if (initials) avatarPlaceholder.textContent = initials;
             }
 
-            document.getElementById('firebase-user-id').textContent = userId;
             document.getElementById('telegram-id-display').textContent = telegramId;
             document.getElementById('user-full-name').textContent = `${userFirstName} ${userLastName}`.trim();
             document.getElementById('username-display').textContent = userUsername;
             
-            // Рендеринг UI
             renderTariffs(); 
             renderDownloadButtons(); 
             renderInstructionButtons(); 
             generateReferralLink();
             window.startSubscriptionListener();
-            switchTab('profile'); // Устанавливаем вкладку по умолчанию
-
-            if (telegramId === 'DEV_USER') {
-                showToast(`API: ${API_BASE}. Не забудьте запустить python3 app.py`, 6000);
-            }
+            switchTab('profile');
         });
-        
-        // --- ДЕЛЕГИРОВАННЫЙ ОБРАБОТЧИК КЛИКОВ ---
+
+        // --- Event Delegation (Anti-Spam & Logic) ---
         window.addEventListener('click', (e) => {
             const btn = e.target.closest("button, a"); 
             if (!btn) return;
             
             e.stopPropagation(); 
-            
-            const DEBOUNCE_TIME = 500;
-            if (btn.disabled) return; 
-            btn.disabled = true;
-            
-            // 4. Логика по делегированию
-            
-            // Кнопки навигации (новое)
+            if (btn.disabled || btn.classList.contains('disabled')) return;
+
+            // 1. Navigation
             if (btn.classList.contains('nav-btn')) {
-                const targetId = btn.dataset.target;
-                switchTab(targetId);
-                btn.disabled = false; // Навигация не требует долгого выполнения
-                return; // Прерываем дебаунсинг
-            }
-            
-            // Кнопки открытия ссылок/запуска действий
-            else if (btn.classList.contains('open-link-delegate')) {
-                const url = btn.dataset.url;
-                openLink(url);
-            }
-            
-            // Кнопки тарифов
-            else if (btn.classList.contains('tariff-btn-delegate')) {
-                const months = parseInt(btn.dataset.months);
-                const price = parseFloat(btn.dataset.price);
-                showPaymentModal(months, price); // Вызываем модальное окно
-                btn.disabled = false; // Не отключаем, так как открываем модальное окно
-                return; // Прерываем дебаунсинг для кнопок тарифа
+                switchTab(btn.dataset.target);
+                return;
             }
 
-            // Кнопка активации триала
-            else if (btn.id === 'start-trial-btn') {
-                startTrial();
-            }
-
-            // Кнопка сброса данных (DEV)
-            else if (btn.id === 'reset-data-btn') {
-                resetUserData();
-            }
-
-            // Кнопка копирования VLESS
-            else if (btn.id === 'copy-vless-btn') {
-                copyVlessLink();
-            }
-
-            // Кнопка копирования реферальной ссылки
-            else if (btn.id === 'copy-referral-btn') {
-                const link = document.getElementById('referral-link-display').textContent;
-                copyText(link, 'Ссылка скопирована!');
-            }
-
-            // Кнопка переключения темы
-            else if (btn.id === 'theme-toggle-btn') {
-                toggleTheme();
-            }
-            
-            // Кнопка закрытия модального окна (новое)
-            else if (btn.id === 'close-modal-btn') {
-                document.getElementById('payment-modal').style.display = 'none';
-                btn.disabled = false;
+            // 2. Special Navigation (Renew Button)
+            if (btn.classList.contains('nav-btn-proxy')) {
+                switchTab(btn.dataset.targetTab);
                 return;
             }
             
-            // Кнопка перехода к оплате внутри модального окна (новое)
-            else if (btn.id === 'go-to-yoomoney-btn') {
-                const url = btn.dataset.url;
-                openLink(url);
-                document.getElementById('payment-modal').style.display = 'none'; 
+            // 3. Controls
+            if (btn.id === 'lang-toggle-btn') {
+                const langs = ['ru', 'en', 'de', 'fr'];
+                let idx = langs.indexOf(currentLang);
+                currentLang = langs[(idx + 1) % langs.length];
+                updateLanguage(currentLang);
+                return;
+            }
+            if (btn.id === 'theme-toggle-btn') {
+                toggleTheme();
+                return;
+            }
+            if (btn.id === 'close-modal-btn') {
+                document.getElementById('payment-modal').style.display = 'none';
+                return;
+            }
+            if (btn.classList.contains('open-link-delegate')) {
+                openLink(btn.dataset.url);
+                return;
+            }
+            if (btn.id === 'go-to-yoomoney-btn') {
+                openLink(btn.dataset.url);
+                document.getElementById('payment-modal').style.display = 'none';
+                return;
             }
 
-            // Агрессивный дебаунсинг (выполняется, если не было return)
-            setTimeout(() => { btn.disabled = false; }, DEBOUNCE_TIME);
+            // --- CRITICAL ACTIONS WITH LOADING STATE ---
+            
+            if (isProcessing) {
+                showToast(TRANSLATIONS[currentLang].processing, 'info');
+                return;
+            }
+
+            // Helper for async actions with spinner
+            const lockAction = async (actionFn, loadingTextKey = 'processing') => {
+                isProcessing = true;
+                btn.classList.add('disabled');
+                const originalContent = btn.innerHTML;
+                
+                // Set spinner and localized text
+                const loadingText = TRANSLATIONS[currentLang][loadingTextKey] || 'Processing...';
+                btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> ${loadingText}`;
+                
+                try {
+                    await actionFn();
+                } catch (err) {
+                    console.error(err);
+                } finally {
+                    setTimeout(() => {
+                        isProcessing = false;
+                        btn.classList.remove('disabled');
+                        btn.innerHTML = originalContent;
+                    }, 1000);
+                }
+            };
+
+            if (btn.classList.contains('tariff-btn-delegate')) {
+                const months = parseInt(btn.dataset.months);
+                const price = parseFloat(btn.dataset.price);
+                showPaymentModal(months, price);
+            } else if (btn.id === 'start-trial-btn') {
+                lockAction(startTrial, 'processing');
+            } else if (btn.id === 'copy-vless-btn') {
+                lockAction(copyVlessLink, 'processing');
+            } else if (btn.id === 'copy-referral-btn') {
+                lockAction(async () => {
+                    const link = document.getElementById('referral-link-display').textContent;
+                    await copyText(link, TRANSLATIONS[currentLang].link_copied);
+                }, 'processing');
+            } else if (btn.id === 'reset-data-btn') {
+                lockAction(resetUserData);
+            }
         });
 
-        // ==========================================================
-        // --- ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ---
-        // ==========================================================
-        
-        /**
-         * Логика переключения вкладок.
-         */
+        // --- Core Functions ---
+
+        function updateLanguage(lang) {
+            localStorage.setItem('lang', lang);
+            currentLang = lang;
+            document.documentElement.lang = lang;
+            document.querySelector('#lang-toggle-btn .lang-text').textContent = lang.toUpperCase();
+
+            document.querySelectorAll('[data-i18n]').forEach(el => {
+                const key = el.getAttribute('data-i18n');
+                if (TRANSLATIONS[lang][key]) {
+                    el.textContent = TRANSLATIONS[lang][key];
+                }
+            });
+
+            renderTariffs();
+            window.dispatchEvent(new Event('db-update')); 
+        }
+
         function switchTab(targetId) {
-            document.querySelectorAll('main section').forEach(section => {
-                section.classList.remove('active');
-            });
-            const targetSection = document.getElementById(targetId);
-            if (targetSection) {
-                targetSection.classList.add('active');
-            }
-            document.querySelectorAll('.nav-btn').forEach(btn => {
-                btn.classList.remove('active');
-            });
-            document.querySelector(`.nav-btn[data-target="${targetId}"]`).classList.add('active');
+            document.querySelectorAll('main section').forEach(s => s.classList.remove('active'));
+            document.getElementById(targetId)?.classList.add('active');
+            document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+            document.querySelector(`.nav-btn[data-target="${targetId}"]`)?.classList.add('active');
         }
 
         function toggleTheme() {
-            const body = document.body;
-            const icon = document.querySelector('.theme-icon');
-            body.classList.toggle('light-theme');
-            icon.textContent = body.classList.contains('light-theme') ? 'Sun' : 'Moon';
-            localStorage.setItem('theme', body.classList.contains('light-theme') ? 'light' : 'dark');
+            document.body.classList.toggle('light-theme');
+            const isLight = document.body.classList.contains('light-theme');
+            document.querySelector('.theme-icon').innerHTML = isLight ? '<i class="fas fa-sun"></i>' : '<i class="fas fa-moon"></i>';
+            localStorage.setItem('theme', isLight ? 'light' : 'dark');
         }
 
-        /**
-         * Показывает модальное окно с деталями оплаты.
-         */
         window.showPaymentModal = (months, price) => {
-            if (telegramId === 'DEV_USER') return showToast('Запустите через Telegram, чтобы совершить оплату');
+            if (telegramId === 'DEV_USER') return showToast('Run in Telegram to pay', 'error');
             
-            const comment = `Оплата_${months}мес_TGID_${telegramId}_Shinobu`;
-            const yoomoneyUrl = `https://yoomoney.ru/quickpay/confirm.xml?receiver=${YOOMONEY_RECIPIENT_ID}&quickpay-form=shop&targets=Shinobu+Proxy+${months}мес&sum=${price.toFixed(2)}&comment=${encodeURIComponent(comment)}&paymentType=AC`;
+            const comment = `Pay_${months}m_${telegramId}`;
+            const yoomoneyUrl = `https://yoomoney.ru/quickpay/confirm.xml?receiver=${YOOMONEY_RECIPIENT_ID}&quickpay-form=shop&targets=Shinobu+${months}m&sum=${price.toFixed(2)}&comment=${encodeURIComponent(comment)}&paymentType=AC`;
             
-            // Заполнение модального окна
+            const t = TRANSLATIONS[currentLang];
+            const monthLabel = months === 1 ? t.month_1 : (months < 5 ? t.month_few : t.month_many);
+
             document.getElementById('modal-tariff-info').innerHTML = `
-                <p><strong>Срок:</strong> ${months} месяц${months > 1 ? 'а' : ''}</p>
-                <p><strong>Сумма:</strong> <span style="font-size: 1.2em; font-weight: bold;">${price.toFixed(2).replace('.', ',')} ₽</span></p>
-                <p><strong>Ваш ID:</strong> ${telegramId}</p>
+                <p><strong>${t.month_1 === 'месяц' ? 'Срок' : 'Period'}:</strong> ${months} ${monthLabel}</p>
+                <p><strong>${t.balance_label}</strong> <span style="font-size: 1.2em; font-weight: bold;">${price.toFixed(2)} ₽</span></p>
+                <p><strong>ID:</strong> ${telegramId}</p>
             `;
             
-            // Установка ссылки для кнопки "Перейти к оплате"
             document.getElementById('go-to-yoomoney-btn').dataset.url = yoomoneyUrl;
-            
-            // Отображение модального окна
             document.getElementById('payment-modal').style.display = 'flex';
         }
-        
-        /**
-         * Активирует пробный период и принудительно обновляет UI.
-         */
+
         window.startTrial = async () => {
-            await window.firestore.setDoc(null, {
-                status: 'active',
-                trial_used: true,
-            }, { merge: true });
-            
-            window.dispatchEvent(new Event('db-update')); 
-            showToast('Пробный период активирован! Ваш ключ генерируется.');
+            await window.firestore.setDoc(null, { status: 'active', trial_used: true }, { merge: true });
+            showToast(TRANSLATIONS[currentLang].trial_success, 'success');
         };
-        
+
         window.openLink = (url) => {
-            if (tg?.openLink) {
-                tg.openLink(url);
-            } else {
-                window.open(url, '_blank');
-            }
+            tg?.openLink ? tg.openLink(url) : window.open(url, '_blank');
         };
 
         window.resetUserData = async () => {
-            if (telegramId !== 'DEV_USER') return showToast('Сброс доступен только в DEV-режиме', 3000);
-            
-            showToast('Попытка сброса данных...', 3000);
+            if (telegramId !== 'DEV_USER') return showToast('DEV ONLY', 'error');
+            await fetch(`${API_BASE}/user/${userId}`, { method: 'DELETE' });
+            showToast('Data reset', 'info');
+            window.dispatchEvent(new Event('db-update')); 
+        };
 
+        async function copyText(text, msg) {
+            if (!text || text.includes('...')) return;
             try {
-                const res = await fetch(`${API_BASE}/user/${userId}`, {
-                    method: 'DELETE',
-                });
-                if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-                
-                showToast('Данные успешно сброшены!', 3000);
-                window.dispatchEvent(new Event('db-update')); 
-
-            } catch (error) {
-                console.error("Ошибка при сбросе данных:", error);
-                showToast('Ошибка при сбросе данных. Смотрите консоль.', 5000);
+                await navigator.clipboard.writeText(text);
+                showToast(msg, 'success');
+            } catch (err) {
+                const el = document.createElement('textarea');
+                el.value = text;
+                document.body.appendChild(el);
+                el.select();
+                document.execCommand('copy');
+                document.body.removeChild(el);
+                showToast(msg, 'success');
             }
-        };
-        
-        function copyText(text, msg) {
-            const el = document.createElement('textarea');
-            el.value = text;
-            document.body.appendChild(el);
-            el.select();
-            document.execCommand('copy');
-            document.body.removeChild(el);
-            showToast(msg);
         }
-        window.copyVlessLink = () => {
-            const text = document.getElementById('vless-link-display').textContent.replace('КЛЮЧ:', '').trim();
-            if (text.includes('Ключ появится') || text.includes('Ключ генерируется')) return showToast('Активируйте подписку или дождитесь ключа!');
-            copyText(text, 'Ключ скопирован!');
+
+        window.copyVlessLink = async () => {
+            const text = document.getElementById('vless-link-display').textContent.replace(/.*: /, '').trim();
+            const t = TRANSLATIONS[currentLang];
+            if (text.includes('...')) return showToast(t.loading, 'error');
+            await copyText(text, t.copied);
         };
-        
+
         window.generateReferralLink = () => {
             const link = `https://t.me/${BOT_USERNAME}?start=ref_${telegramId}`;
             document.getElementById('referral-link-display').textContent = link;
         };
-        
-        // --- ФУНКЦИИ РЕНДЕРИНГА (только генерируют HTML с data-атрибутами) ---
 
         function renderTariffs() {
+            const t = TRANSLATIONS[currentLang];
             const grid = document.getElementById('tariff-grid');
-            grid.innerHTML = TARIFFS.map((t) => `
+            grid.innerHTML = TARIFFS.map((tariff) => {
+                const mLabel = tariff.months === 1 ? t.month_1 : (tariff.months < 5 ? t.month_few : t.month_many);
+                return `
                 <div class="tariff-card">
-                    <button class="btn tariff-btn tariff-btn-delegate" data-months="${t.months}" data-price="${t.price}">
+                    <button class="btn tariff-btn tariff-btn-delegate" data-months="${tariff.months}" data-price="${tariff.price}">
                         <i class="fas fa-calendar"></i>
-                        ${t.months} мес.
-                        <span style="font-weight: bold; font-size: 1.1em;">${t.price.toFixed(2).replace('.', ',')} ₽</span>
-                        ${t.description ? `<span style="font-size: 0.8em; opacity: 0.8;">(${t.description})</span>` : ''}
+                        ${tariff.months} ${mLabel}
+                        <span style="font-weight: bold; font-size: 1.1em; margin-left:auto;">${tariff.price.toFixed(0)} ₽</span>
                     </button>
-                </div>
-            `).join('');
+                </div>`;
+            }).join('');
         }
 
         function renderDownloadButtons() {
-            const grid = document.getElementById('download-grid');
-            grid.innerHTML = Object.values(DOWNLOAD_LINKS).map(i => `
+            document.getElementById('download-grid').innerHTML = Object.values(DOWNLOAD_LINKS).map(i => `
                 <button class="btn download-btn open-link-delegate" data-url="${i.url}">
                     <i class="${i.icon}"></i> ${i.name}
-                </button>
-            `).join('');
+                </button>`).join('');
         }
 
         function renderInstructionButtons() {
-            const grid = document.getElementById('instructions-grid');
-            grid.innerHTML = Object.values(INSTRUCTION_LINKS).map(i => `
+            document.getElementById('instructions-grid').innerHTML = Object.values(INSTRUCTION_LINKS).map(i => `
                 <button class="btn instruction-btn open-link-delegate" data-url="${i.url}">
                     <i class="${i.icon}"></i> ${i.name}
-                </button>
-            `).join('');
+                </button>`).join('');
         }
-        
-        // --- СЛУШАТЕЛЬ СТАТУСА ---
-        
+
+        // --- Live Updates & Subscription Logic ---
         window.startSubscriptionListener = async function() {
             const indicator = document.getElementById('status-indicator');
             const info = document.getElementById('status-info');
             const vlessDisplay = document.getElementById('vless-link-display');
             const trialCard = document.getElementById('trial-card-status');
+            const renewContainer = document.getElementById('renew-container');
 
             const handleSnapshot = (docSnap) => {
                 const data = docSnap.data();
+                const t = TRANSLATIONS[currentLang];
                 
-                // Чтение и отображение баланса
-                const balance = data.balance ? parseFloat(data.balance).toFixed(2).replace('.', ',') : '0,00';
+                const balance = data.balance ? parseFloat(data.balance).toFixed(2) : '0.00';
                 document.getElementById('user-balance-display').textContent = `${balance} ₽`;
 
-                const hasActiveSubscription = data.vless_key && data.subscription_expiry && Number(data.subscription_expiry) * 1000 > Date.now();
-                const hasUsedTrial = data.trial_used;
-
-                if (!data.vless_key) {
-                    indicator.textContent = 'Неактивна'; indicator.className = 'status-indicator status-inactive';
-                    info.innerHTML = `<p>Дата истечения: <span id="expiry-date">Нет подписки</span></p><p>Пользователь: ${userId}</p>`;
-                    vlessDisplay.innerHTML = '<span style="color: #7b2cbf;">Ключ появится после активации</span>';
-                } else if (hasActiveSubscription) {
-                    const date = new Date(Number(data.subscription_expiry) * 1000);
-                    const formatted = date.toLocaleDateString('ru-RU', { year: 'numeric', month: 'long', day: 'numeric' });
-                    indicator.textContent = 'Активна'; indicator.className = 'status-indicator status-active';
-                    info.innerHTML = `<p>Дата истечения: <span id="expiry-date">${formatted}</span></p><p>Пользователь: ${userId}</p>`;
-                    vlessDisplay.innerHTML = `<strong>КЛЮЧ:</strong> ${data.vless_key}`;
+                const expiryTime = Number(data.subscription_expiry) * 1000;
+                const now = Date.now();
+                const isActive = data.vless_key && data.subscription_expiry && expiryTime > now;
+                
+                // Calculate days left
+                const daysLeft = isActive ? Math.ceil((expiryTime - now) / (1000 * 60 * 60 * 24)) : 0;
+                
+                // Renew Button Logic
+                if (!isActive || daysLeft < 5) {
+                    renewContainer.style.display = 'block';
                 } else {
-                    indicator.textContent = 'Истекла'; indicator.className = 'status-indicator status-inactive';
-                    info.innerHTML = `<p>Дата истечения: <span id="expiry-date">Продлите подписку</span></p><p>Пользователь: ${userId}</p>`;
-                    vlessDisplay.innerHTML = `<strong>КЛЮЧ:</strong> ${data.vless_key}`;
+                    renewContainer.style.display = 'none';
+                }
+                
+                if (!data.vless_key) {
+                    indicator.textContent = t.status_inactive; indicator.className = 'status-indicator status-inactive';
+                    info.innerHTML = `<p>${t.expiry_label} -</p>`;
+                    vlessDisplay.innerHTML = `<span style="color: #7b2cbf;">${t.key_inactive}</span>`;
+                } else if (isActive) {
+                    const date = new Date(expiryTime);
+                    const formatted = date.toLocaleDateString(currentLang, { year: 'numeric', month: 'long', day: 'numeric' });
+                    
+                    if (daysLeft < 5) {
+                        indicator.textContent = `${t.status_active} (< 5 days)`; 
+                        indicator.className = 'status-indicator status-warning';
+                    } else {
+                        indicator.textContent = t.status_active; 
+                        indicator.className = 'status-indicator status-active';
+                    }
+                    
+                    info.innerHTML = `<p>${t.expiry_label} <span id="expiry-date">${formatted}</span></p>`;
+                    vlessDisplay.innerHTML = `<strong>${t.key_active}</strong> ${data.vless_key}`;
+                } else {
+                    indicator.textContent = t.status_expired; indicator.className = 'status-indicator status-inactive';
+                    info.innerHTML = `<p>${t.expiry_label} ${t.status_expired}</p>`;
+                    vlessDisplay.innerHTML = `<strong>${t.key_active}</strong> ${data.vless_key}`;
                 }
 
-                if (hasUsedTrial) {
+                if (data.trial_used) {
                     trialCard.innerHTML = `
-                        <p style="color: #38a169; font-weight: bold; margin-bottom: 15px;"><i class="fas fa-check-circle"></i> Пробный период использован.</p>
-                        ${telegramId === 'DEV_USER' ? `
-                            <button class="btn" id="reset-data-btn" style="background: #9b2c32; color: white; border-color: #e53e3e; margin-top: 10px;">
-                                <i class="fas fa-undo"></i> Сбросить данные (DEV)
-                            </button>
-                        ` : ''}
+                        <p style="color: #38a169; font-weight: bold; margin-bottom: 15px;"><i class="fas fa-check-circle"></i> ${t.trial_used}.</p>
+                        ${telegramId === 'DEV_USER' ? `<button class="btn" id="reset-data-btn" style="background:#9b2c32;margin-top:10px;">RESET (DEV)</button>` : ''}
                     `;
                 } else {
-                    trialCard.innerHTML = `<button class="btn btn-primary" id="start-trial-btn"><i class="fas fa-gift"></i> Активировать ${TRIAL_DAYS} дня бесплатно</button>`;
+                    trialCard.innerHTML = `<button class="btn btn-primary" id="start-trial-btn"><i class="fas fa-gift"></i> ${t.trial_btn}</button>`;
                 }
 
                 window.updateReferralUI(data.invited_count || 0);
             };
-
             window.firestore.onSnapshot(null, handleSnapshot);
         };
 
         window.updateReferralUI = (count) => {
-            document.getElementById('invited-count-display').innerHTML = `Приглашено: <strong>${count}</strong>`;
+            const t = TRANSLATIONS[currentLang];
+            document.getElementById('invited-count-display').innerHTML = `${t.invited_text} <strong>${count}</strong>`;
         };
 
-
-        window.showToast = (msg, dur = 3000) => {
+        // --- Enhanced Toast ---
+        window.showToast = (msg, type = 'info', dur = 3000) => {
+            const container = document.getElementById('toast-container-box');
             const toast = document.createElement('div');
-            toast.style.cssText = 'position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.9);color:white;padding:10px 20px;border-radius:8px;z-index:10001;opacity:0;transition:opacity 0.3s;font-size:0.9em;text-align:center;box-shadow:0 4px 12px rgba(0,0,0,0.3);';
-            toast.textContent = msg;
-            document.body.appendChild(toast);
-            setTimeout(() => toast.style.opacity = 1, 10);
-            setTimeout(() => { toast.style.opacity = 0; toast.addEventListener('transitionend', () => toast.remove()); }, dur);
+            
+            let icon = '<i class="fas fa-info-circle"></i>';
+            let className = 'toast-info';
+            
+            if (type === 'success') {
+                icon = '<i class="fas fa-check-circle"></i>';
+                className = 'toast-success';
+            } else if (type === 'error') {
+                icon = '<i class="fas fa-exclamation-circle"></i>';
+                className = 'toast-error';
+            }
+
+            toast.className = `toast ${className}`;
+            toast.innerHTML = `${icon} <span>${msg}</span>`;
+            
+            container.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateY(20px)';
+                toast.style.transition = 'all 0.3s ease';
+                toast.addEventListener('transitionend', () => toast.remove());
+            }, dur);
         };
     </script>
 </body>
