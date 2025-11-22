@@ -238,10 +238,11 @@
         /* Стили для картинок в инструкциях */
         .instruction-img {
             width: 100%;
-            max-width: 400px; 
+            max-width: 400px; /* <-- ОГРАНИЧЕНИЕ РАЗМЕРА КАРТИНКИ */
             height: auto;
             border-radius: 8px;
-            margin: 15px 0; 
+            /* Центрирование картинки */
+            margin: 15px auto; 
             display: block;
             border: 1px solid rgba(123, 44, 191, 0.5);
             box-shadow: 0 4px 15px rgba(0,0,0,0.3);
@@ -362,11 +363,24 @@
                         </button>
                     </div>
 
-                    <div id="vless-container" class="vless-container" style="margin-top: 20px;">
-                        <div class="vless-link-box" id="vless-link-display" data-i18n="loading_key">Загрузка ключа...</div>
-                        <button class="btn vless-copy-btn" id="copy-vless-btn">
-                            <i class="fas fa-copy"></i> <span data-i18n="copy_btn">Копировать</span>
-                        </button>
+                    <div style="margin-top: 20px;">
+                        <div class="vless-container">
+                            <div class="vless-link-box" id="vless-link-display" data-i18n="loading_key">Загрузка ключа...</div>
+                        </div>
+                        <div class="grid-2" style="margin-top: 10px;"> 
+                            <button class="btn vless-copy-btn" id="copy-vless-btn">
+                                <i class="fas fa-copy"></i> <span data-i18n="copy_btn">Копировать</span>
+                            </button>
+                            <button class="btn" id="toggle-qr-btn">
+                                <i class="fas fa-qrcode"></i> <span data-i18n="qr_btn">QR-код</span>
+                            </button>
+                        </div>
+                        
+                        <div id="qr-code-display" class="card" style="display: none; text-align: center; margin-top: 15px; padding: 20px;">
+                            <h4 style="color: #00d4ff; margin-bottom: 10px;" data-i18n="qr_title">Сканируйте ключ</h4>
+                            <div id="qr-code-placeholder"></div>
+                            <p style="margin-top: 10px; font-size: 0.8em; opacity: 0.7;" data-i18n="qr_note">Используйте этот код в приложении для настройки.</p>
+                        </div>
                     </div>
                 </div>
 
@@ -473,7 +487,10 @@
                 processing: "Обработка...",
                 copied: "Скопировано!",
                 link_copied: "Ссылка скопирована!",
-                trial_success: "Пробный период активирован!"
+                trial_success: "Пробный период активирован!",
+                qr_btn: "QR-код", // NEW
+                qr_title: "Сканируйте ключ", // NEW
+                qr_note: "Используйте этот код в приложении для настройки." // NEW
             },
             en: {
                 tagline: "Your privacy is our priority",
@@ -495,7 +512,10 @@
                 processing: "Processing...",
                 copied: "Copied!",
                 link_copied: "Link copied!",
-                trial_success: "Trial activated!"
+                trial_success: "Trial activated!",
+                qr_btn: "QR Code", // NEW
+                qr_title: "Scan the Key", // NEW
+                qr_note: "Use this code in the app for setup." // NEW
             },
             de: {
                 tagline: "Ihre Privatsphäre ist unsere Priorität",
@@ -509,7 +529,7 @@
                 title_setup: "Verbindung", subtitle_download: "App herunterladen", subtitle_instructions: "Anleitungen",
                 modal_title: "Abonnementzahlung", modal_warning: "ACHTUNG! Nach der Zahlung MÜSSEN Sie zum Bot zurückkehren.",
                 modal_pay_btn: "Zur Zahlung", modal_close_btn: "Schließen",
-                status_active: "Aktiv", status_inactive: "Inaktiv", status_expired: "Abgelaufen",
+                status_active: "Aktiv", status_inactive: "Abgelaufen", status_expired: "Abgelaufen",
                 trial_btn: "3 Tage kostenlos aktivieren", trial_used: "Probezeit genutzt",
                 month_1: "Monat", month_few: "Monate", month_many: "Monate",
                 key_active: "SCHLÜSSEL:", key_inactive: "Schlüssel erscheint nach Aktivierung",
@@ -517,7 +537,10 @@
                 processing: "Verarbeitung...",
                 copied: "Kopiert!",
                 link_copied: "Link kopiert!",
-                trial_success: "Probezeit aktiviert!"
+                trial_success: "Probezeit aktiviert!",
+                qr_btn: "QR-Code", // NEW
+                qr_title: "Schlüssel scannen", // NEW
+                qr_note: "Verwenden Sie diesen Code in der App zur Einrichtung." // NEW
             },
             fr: {
                 tagline: "Votre vie privée est notre priorité",
@@ -539,7 +562,10 @@
                 processing: "Traitement...",
                 copied: "Copié!",
                 link_copied: "Lien copié !",
-                trial_success: "Essai activé !"
+                trial_success: "Essai activé!",
+                qr_btn: "Code QR", // NEW
+                qr_title: "Scanner la clé", // NEW
+                qr_note: "Utilisez ce code dans l'application pour la configuration." // NEW
             }
         };
 
@@ -846,6 +872,8 @@
                 lockAction(startTrial, 'processing');
             } else if (btn.id === 'copy-vless-btn') {
                 lockAction(copyVlessLink, 'processing');
+            } else if (btn.id === 'toggle-qr-btn') { // NEW: Handle QR toggle button
+                toggleQrCode();
             } else if (btn.id === 'copy-referral-btn') {
                 lockAction(async () => {
                     const link = document.getElementById('referral-link-display').textContent;
@@ -947,6 +975,37 @@
             await copyText(text, t.copied);
         };
 
+        // NEW: QR Code generation function
+        window.toggleQrCode = () => {
+            const vlessLink = document.getElementById('vless-link-display').textContent.replace(/.*: /, '').trim();
+            const qrDisplay = document.getElementById('qr-code-display');
+            const qrPlaceholder = document.getElementById('qr-code-placeholder');
+            const qrBtn = document.getElementById('toggle-qr-btn');
+            const t = TRANSLATIONS[currentLang];
+
+            // Hide if already visible
+            if (qrDisplay.style.display === 'block') {
+                qrDisplay.style.display = 'none';
+                qrBtn.classList.remove('btn-primary');
+                return;
+            }
+            
+            // Check if key is loaded
+            if (vlessLink.includes('...')) {
+                showToast(t.key_inactive, 'error');
+                return;
+            }
+            
+            // Generate QR Code URL using Google Charts API (200x200)
+            const qrCodeUrl = `https://chart.googleapis.com/chart?chs=200x200&cht=qr&chl=${encodeURIComponent(vlessLink)}`;
+            
+            qrPlaceholder.innerHTML = `<img src="${qrCodeUrl}" alt="QR Code" style="width: 200px; height: 200px; border-radius: 8px; border: 4px solid #7b2cbf; display: block; margin: 0 auto; box-shadow: 0 0 10px rgba(0, 212, 255, 0.5);">`;
+            
+            // Show the QR code block
+            qrDisplay.style.display = 'block';
+            qrBtn.classList.add('btn-primary');
+        };
+
         window.generateReferralLink = () => {
             const link = `https://t.me/${BOT_USERNAME}?start=ref_${telegramId}`;
             document.getElementById('referral-link-display').textContent = link;
@@ -1004,6 +1063,7 @@
             const vlessDisplay = document.getElementById('vless-link-display');
             const trialCard = document.getElementById('trial-card-status');
             const renewContainer = document.getElementById('renew-container');
+            const qrBtn = document.getElementById('toggle-qr-btn');
 
             const handleSnapshot = (docSnap) => {
                 const data = docSnap.data();
@@ -1028,6 +1088,7 @@
                     indicator.textContent = t.status_inactive; indicator.className = 'status-indicator status-inactive';
                     info.innerHTML = `<p>${t.expiry_label} -</p>`;
                     vlessDisplay.innerHTML = `<span style="color: #7b2cbf;">${t.key_inactive}</span>`;
+                    if(qrBtn) qrBtn.disabled = true; // NEW: Disable QR button
                 } else if (isActive) {
                     const date = new Date(expiryTime);
                     const formatted = date.toLocaleDateString(currentLang, { year: 'numeric', month: 'long', day: 'numeric' });
@@ -1042,10 +1103,12 @@
                     
                     info.innerHTML = `<p>${t.expiry_label} <span id="expiry-date">${formatted}</span></p>`;
                     vlessDisplay.innerHTML = `<strong>${t.key_active}</strong> ${data.vless_key}`;
+                    if(qrBtn) qrBtn.disabled = false; // NEW: Enable QR button
                 } else {
                     indicator.textContent = t.status_expired; indicator.className = 'status-indicator status-inactive';
                     info.innerHTML = `<p>${t.expiry_label} ${t.status_expired}</p>`;
                     vlessDisplay.innerHTML = `<strong>${t.key_active}</strong> ${data.vless_key}`;
+                    if(qrBtn) qrBtn.disabled = false; // NEW: Enable QR button
                 }
 
                 if (data.trial_used) {
