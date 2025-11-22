@@ -8,20 +8,16 @@
     <meta http-equiv="Expires" content="0">
     <title>Shinobu Proxy v3.0</title>
     <script src="https://telegram.org/js/telegram-web-app.js?v=2.2"></script>
-    <script src="main.js"></script>
+    <script src="static.js"></script> <script src="main.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <link rel="stylesheet" href="styles.css">
-    
 </head>
 <body>
-    <div class="version-tag">v3.0</div>
+    <div class="version-tag">v3.1</div>
     
     <div class="controls-container">
         <button class="control-btn" id="lang-toggle-btn" aria-label="Change Language">
             <span class="lang-text">RU</span>
-        </button>
-        <button class="control-btn" id="theme-toggle-btn" aria-label="Toggle Theme">
-            <span class="theme-icon"><i class="fas fa-moon"></i></span>
         </button>
     </div>
 
@@ -30,7 +26,6 @@
     <div class="grid-background"></div>
     <div class="orb orb1"></div>
     <div class="orb orb2"></div>
-    <div class="orb orb3"></div>
 
     <div class="container">
         
@@ -69,8 +64,7 @@
             <section id="profile" class="active"> 
                 <h2 class="section-title"><i class="fas fa-key"></i> <span data-i18n="title_status">Ваш Статус</span></h2>
                 <div class="card">
-                    
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 1px solid rgba(123, 44, 191, 0.3);">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 1px solid rgba(255, 255, 255, 0.1);">
                         <h3 data-i18n="balance_label">Ваш Баланс:</h3>
                         <div style="font-size: 1.5em; font-weight: bold; color: #00d4ff;" id="user-balance-display">0,00 ₽</div>
                     </div>
@@ -117,7 +111,7 @@
                 <h2 class="section-title"><i class="fas fa-wallet"></i> <span data-i18n="title_tariffs">Тарифы и Оплата</span></h2>
                 <div class="grid grid-2" id="tariff-grid"></div>
                 <div class="card warning-card">
-                    <p data-i18n="payment_warning"><strong>ВНИМАНИЕ:</strong> После оплаты вернитесь в чат с ботом. Активация — до 5 минут.</p>
+                    <p data-i18n="payment_warning">ВНИМАНИЕ: После оплаты вернитесь в чат с ботом. Активация — до 5 минут.</p>
                 </div>
             </section>
             
@@ -127,11 +121,9 @@
                     <h3 id="invited-count-display" style="color: #00d4ff; text-align: center; margin-bottom: 15px;">
                         <span data-i18n="invited_text">Приглашено:</span> 0
                     </h3>
-                    
                     <p id="referral-desc-text" data-i18n="referral_desc">
                         Приглашайте друзей — +10 дней подписки тебе и другу!
                     </p>
-                    
                     <div class="vless-container">
                         <button class="btn vless-copy-btn" id="copy-referral-btn" style="background: linear-gradient(90deg, #7b2cbf, #9d4edd); width: 100%; margin-bottom: 5px;">
                             <i class="fas fa-copy"></i> <span data-i18n="copy_btn">Копировать ссылку</span>
@@ -143,7 +135,6 @@
 
             <section id="instructions">
                 <h2 class="section-title"><i class="fas fa-mobile-alt"></i> <span data-i18n="title_setup">Настройка</span></h2>
-
                 <h3 class="section-title-h3">
                     <i class="fas fa-download"></i> <span data-i18n="subtitle_download">Скачать приложение</span>
                 </h3>
@@ -165,7 +156,7 @@
             <div id="modal-tariff-info" style="font-size: 1.1em; margin-bottom: 20px; line-height: 1.5;"></div>
             
             <div class="warning-card" style="margin-bottom: 20px;">
-                <p data-i18n="modal_warning"><strong>ВНИМАНИЕ!</strong> После оплаты ОБЯЗАТЕЛЬНО вернитесь в чат с ботом.</p>
+                <p data-i18n="modal_warning">ВНИМАНИЕ! После оплаты ОБЯЗАТЕЛЬНО вернитесь в чат с ботом.</p>
             </div>
             
             <div style="display: flex; gap: 10px; flex-direction: column;">
@@ -178,8 +169,5 @@
             </div>
         </div>
     </div>
-
-
 </body>
-
 </html>
