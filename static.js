@@ -51,37 +51,108 @@ const TRANSLATIONS = {
 };
 
 const DOWNLOAD_LINKS = {
-    android: { name: 'Android', icon: 'fab fa-android', url: 'https://github.com/2dust/v2rayNG/releases/download/1.10.28/v2rayNG_1.10.28-fdroid_universal.apk' },
-    ios: { name: 'iOS (V2RayTun)', icon: 'fab fa-apple', url: 'https://apps.apple.com/us/app/v2raytun/id6476628951' },
-    windows: { name: 'Windows', icon: 'fab fa-windows', url: 'https://github.com/hiddify/hiddify-app/releases/download/v2.5.7/Hiddify-Windows-Setup-x64.exe' },
-    androidtv: { name: 'Android TV', icon: 'fas fa-tv', url: 'https://github.com/2dust/v2rayNG/releases/download/1.10.28/v2rayNG_1.10.28-fdroid_universal.apk' }
+    android: { name: 'Android', icon: 'fab fa-android', url: 'https://github.com/v2fly/v2rayNG/releases' },
+    ios: { name: 'iOS (V2RayTun)', icon: 'fab fa-apple', url: 'https://apps.apple.com/app/v2raytun/id6444857502' },
+    windows: { name: 'Windows (Hiddify)', icon: 'fab fa-windows', url: 'https://hiddify.com/download' },
+    mac: { name: 'macOS', icon: 'fab fa-apple', url: 'https://github.com/v2rayA/v2rayA/releases' },
 };
 
-// ОБНОВЛЕННЫЙ FAQ (Пункт 3)
+// --- Instruction Content ---
 const INSTRUCTION_LINKS = {
     android: {
-        name: 'Android', icon: 'fab fa-android',
-        html: `<h4>Настройка для Android</h4><ol><li>Скопируйте ваш ключ доступа на вкладке "Профиль".</li><li>Скачайте v2rayNG (кнопка выше).</li><li>Нажмите <b>+</b> -> "Импорт из буфера".</li><img src="https://shinobubest.github.io/web/resources/android/4.png" class="instruction-img"><li>Нажмите кнопку подключения (V) внизу.</li></ol>`
+        name: 'Android',
+        icon: 'fab fa-android',
+        html: `
+                    <h4>Настройка для Android (v2rayNG)</h4>
+                    <ol>
+                        <li>Скопируйте ваш ключ доступа на вкладке "Профиль".</li>
+                        <li>Скачайте приложение нажатием на кнопку <b>Android</b> (кнопка выше).</li>
+                        
+                        <li>Откройте приложение и нажмите <b>+</b> (или иконку меню).</li>
+                        
+                        <img src="https://shinobubest.github.io/web/resources/android/3.png" class="instruction-img" alt="Шаг 2">
+                        
+                        <li>Выберите "Импорт из буфера обмена".</li>
+                        
+                        <img src="https://shinobubest.github.io/web/resources/android/4.png" class="instruction-img" alt="Шаг 3">
+                        
+                        <li>Нажмите кнопку <b>►</b> (подключиться) внизу.</li>
+                        
+                        <img src="https://shinobubest.github.io/web/resources/android/5.png" class="instruction-img" alt="Шаг 5">
+                    </ol>`
     },
     ios: {
-        name: 'iOS', icon: 'fab fa-apple',
-        html: `<h4>Настройка для iPhone</h4><ol><li>Скопируйте ключ.</li><li>Скачайте V2RayTun.</li><li>В приложении оно само предложит добавить ключ из буфера.</li><img src="https://shinobubest.github.io/web/resources/iphone/4.png" class="instruction-img"><li>Нажмите кнопку подключения.</li></ol>`
+        name: 'iOS',
+        icon: 'fab fa-apple',
+        html: `
+                    <h4>Настройка для iPhone (V2RayTun)</h4>
+                    <ol>
+                        <li>Скопируйте ваш ключ доступа на вкладке "Профиль".</li>
+                        
+                        <li>Скачайте приложение нажатием на кнопку <b>IOS(V2RayTun)</b>.</li>
+                        
+                        <li>В правом верхнем углу приложения нажмите <b>+</b> .</li>
+                        
+                        <img src="https://shinobubest.github.io/web/resources/iphone/3.png" class="instruction-img" alt="Шаг 3">
+
+                        <li>Выберите "Добавить из буфера".</li>
+                        
+                        <img src="https://shinobubest.github.io/web/resources/iphone/4.png" class="instruction-img" alt="Шаг 4">
+
+                        <li>В центре нажмите на кнопку.</li>
+                        
+                        <img src="https://shinobubest.github.io/web/resources/iphone/5.png" class="instruction-img" alt="Шаг 5">
+                    </ol>`
     },
     windows: {
-        name: 'Windows', icon: 'fab fa-windows',
-        html: `<h4>Настройка для Windows</h4><ol><li>Скопируйте ключ.</li><li>Установите Hiddify.</li><li>Нажмите "+ Новый профиль".</li><li>"Добавить из буфера".</li><img src="https://shinobubest.github.io/web/resources/win/4.png" class="instruction-img"><li>Нажмите большую кнопку "Connect".</li></ol>`
+        name: 'Windows',
+        icon: 'fab fa-windows',
+        html: `
+                    <h4>Настройка для Windows (Hiddify)</h4>
+                    <ol>
+                        <li>Скопируйте ваш ключ доступа на вкладке "Профиль".</li>
+                        
+                        <li>Скачайте приложение нажатием на кнопку и установите (кнопка выше) <b>Windows</b>.</li>
+                        
+                        <li>Откройте программу, нажмите "Новый профиль" или "+".</li>
+                        
+                        <img src="https://shinobubest.github.io/web/resources/win/3.png" class="instruction-img" alt="Шаг 3">
+
+                        <li>Выберите "Добавить из буфера обмена".</li>
+                        
+                        <img src="https://shinobubest.github.io/web/resources/win/4.png" class="instruction-img" alt="Шаг 4">
+
+                        <li>Нажмите большую кнопку подключения по центру.</li>
+                    </ol>`
     },
     androidtv: {
-        name: 'Android TV', icon: 'fas fa-tv',
-        html: `<h4>Android TV</h4><ol><li>Передайте файл .apk на телевизор (через флешку или Send Files to TV).</li><li>Установите v2rayNG.</li><li>Используйте QR-код в профиле для сканирования камерой телефона (если приложение поддерживает) или импортируйте ключ вручную.</li></ol>`
+        name: 'Android TV',
+        icon: 'fas fa-tv',
+        html: `
+                    <h4>Android TV</h4>
+                    <ol>
+                        <li>Скачайте приложение на Android(кнопка выше) и еще установите Send Files to TV из Google Play .</li>
+                        <li>Откройте на андроид смартфоне "Проводник" или Файловый менеджер и найдите скачанный файл v2rayNG.apk и "скриншот QR-кода" и нажмите кнопку поделиться и из предложенного списка приложений найдите иконку приложения Send files to TV.</li>
+                        <img src="https://shinobubest.github.io/web/resources/atv/2.png" class="instruction-img">
+                        <li>На телевизоре запустите приложение Send Files to TV (приложение запросит разрешение на доступ к фото и видео - нажмите Разрешить).</li>
+                        <li>На андроид смартфоне выберите вашу приставку, на телевизоре подтвердите скачивание и приложение отправится на Android TV.</li>
+                        <img src="https://shinobubest.github.io/web/resources/atv/3.png" class="instruction-img">
+                        <li>Теперь вы можете открыть Файловый менеджер (File Manager+) и в загрузках найдите приложение v2rayNG.apk, установите его и зайдите в приложение.</li>
+                        <li>В правом верхнем углу приложения нажмите «+» → выберите пункт «Импорт из QR-кода».</li>
+                        <img src="https://shinobubest.github.io/web/resources/atv/4.png" class="instruction-img">
+                        <img src="https://shinobubest.github.io/web/resources/atv/5.png" class="instruction-img">
+                        <li>Теперь вы должны нажать на иконку "Изображение" в правом верхнем углу.</li>
+                        <img src="https://shinobubest.github.io/web/resources/atv/6.png" class="instruction-img">
+                        <li>Внизу приложения нажмите «Запуск» и подтвердите разрешение на использование VPN-подключения.</li>
+                        <img src="https://shinobubest.github.io/web/resources/atv/7.png" class="instruction-img">
+                    </ol>`
     },
     faq: {
-        name: 'Помощь (FAQ)', icon: 'fas fa-question-circle',
+        name: 'FAQ',
+        icon: 'fas fa-lightbulb',
         html: `
-            <h4>Частые вопросы</h4>
-            <p><b>В: Низкая скорость?</b><br>О: Попробуйте отключить и включить VPN заново в приложении.</p>
-            <p><b>В: Статус "Неактивна" после оплаты?</b><br>О: Подождите 5 минут. Если не помогло — напишите команду /start в боте.</p>
-            <p><b>В: Можно на нескольких устройствах?</b><br>О: Да, один ключ можно использовать на 3-х устройствах.</p>
-        `
+                    <h4>Частые вопросы</h4>
+                    <p>Здесь будут ответы на частые вопросы.</p>`
     }
 };
+
