@@ -316,12 +316,13 @@ function renderTariffs() {
     const grid = document.getElementById('tariff-grid');
     grid.innerHTML = TARIFFS.map((tariff) => {
         const mLabel = tariff.months === 1 ? t.month_1 : (tariff.months < 5 ? t.month_few : t.month_many);
+        // Убрал margin-left: auto, добавил margin-top для отступа от текста месяца
         return `
                 <div class="tariff-card">
                     <button class="btn tariff-btn tariff-btn-delegate" data-months="${tariff.months}" data-price="${tariff.price}">
                         <i class="fas fa-calendar"></i>
                         ${tariff.months} ${mLabel}
-                        <span style="font-weight: bold; font-size: 1.1em; margin-left:auto;">${tariff.price.toFixed(0)} ₽</span>
+                        <span style="font-weight: bold; font-size: 1.2em; margin-top: 5px;">${tariff.price.toFixed(0)} ₽</span>
                     </button>
                 </div>`;
     }).join('');
@@ -453,3 +454,4 @@ window.showToast = (msg, type = 'info', dur = 3000) => {
         toast.addEventListener('transitionend', () => toast.remove());
     }, dur);
 };
+
