@@ -67,14 +67,13 @@ window.addEventListener('load', () => {
         tg = window.Telegram.WebApp;
         tg.ready();
         tg.expand();
+        tg.enableClosingConfirmation();
+        // Устанавливаем цвет хедера Telegram в цвет фона
+        tg.setHeaderColor('#2a1b3d'); 
+        tg.setBackgroundColor('#2a1b3d');
     }
 
-    const savedTheme = localStorage.getItem('theme');
-    if (savedTheme === 'light' || (!savedTheme && window.matchMedia('(prefers-color-scheme: light)').matches)) {
-        document.body.classList.add('light-theme');
-        document.querySelector('.theme-icon').innerHTML = '<i class="fas fa-sun"></i>';
-    }
-
+    // Инициализация языка
     updateLanguage(currentLang);
 
     userId = localStorage.getItem('shinobu_user_id') || 'local_' + Math.random().toString(36).substr(2, 9);
@@ -109,7 +108,7 @@ window.addEventListener('load', () => {
     switchTab('profile');
 });
 
-// --- Event Delegation (Anti-Spam & Logic) ---
+// --- Event Delegation ---
 window.addEventListener('click', (e) => {
     const btn = e.target.closest("button, a");
     if (!btn) return;
@@ -129,7 +128,7 @@ window.addEventListener('click', (e) => {
         return;
     }
 
-    // 3. Controls
+    // 3. Controls (Только язык)
     if (btn.id === 'lang-toggle-btn') {
         const langs = ['ru', 'en', 'de', 'fr'];
         let idx = langs.indexOf(currentLang);
@@ -137,10 +136,8 @@ window.addEventListener('click', (e) => {
         updateLanguage(currentLang);
         return;
     }
-    if (btn.id === 'theme-toggle-btn') {
-        toggleTheme();
-        return;
-    }
+
+    // Modal controls
     if (btn.id === 'close-modal-btn') {
         document.getElementById('payment-modal').style.display = 'none';
         return;
@@ -155,30 +152,25 @@ window.addEventListener('click', (e) => {
         return;
     }
 
-    // 4. Инструкции (Аккордеон)
+    // 4. Instructions
     if (btn.classList.contains('accordion-btn')) {
         const contentId = btn.dataset.target;
         const content = document.getElementById(contentId);
-
         btn.classList.toggle('active');
         content.classList.toggle('open');
         return;
     }
 
-    // --- CRITICAL ACTIONS WITH LOADING STATE ---
-
+    // --- CRITICAL ACTIONS ---
     if (isProcessing) {
         showToast(TRANSLATIONS[currentLang].processing, 'info');
         return;
     }
 
-    // Helper for async actions with spinner
     const lockAction = async (actionFn, loadingTextKey = 'processing') => {
         isProcessing = true;
         btn.classList.add('disabled');
         const originalContent = btn.innerHTML;
-
-        // Set spinner and localized text
         const loadingText = TRANSLATIONS[currentLang][loadingTextKey] || 'Processing...';
         btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> ${loadingText}`;
 
@@ -203,15 +195,13 @@ window.addEventListener('click', (e) => {
         lockAction(startTrial, 'processing');
     } else if (btn.id === 'copy-vless-btn') {
         lockAction(copyVlessLink, 'processing');
-    } else if (btn.id === 'toggle-qr-btn') { // NEW: Handle QR toggle button
+    } else if (btn.id === 'toggle-qr-btn') {
         toggleQrCode();
     } else if (btn.id === 'copy-referral-btn') {
         lockAction(async () => {
             const link = document.getElementById('referral-link-display').textContent;
             await copyText(link, TRANSLATIONS[currentLang].link_copied);
         }, 'processing');
-    } else if (btn.id === 'reset-data-btn') {
-        lockAction(resetUserData);
     }
 });
 
@@ -239,13 +229,6 @@ function switchTab(targetId) {
     document.getElementById(targetId)?.classList.add('active');
     document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
     document.querySelector(`.nav-btn[data-target="${targetId}"]`)?.classList.add('active');
-}
-
-function toggleTheme() {
-    document.body.classList.toggle('light-theme');
-    const isLight = document.body.classList.contains('light-theme');
-    document.querySelector('.theme-icon').innerHTML = isLight ? '<i class="fas fa-sun"></i>' : '<i class="fas fa-moon"></i>';
-    localStorage.setItem('theme', isLight ? 'light' : 'dark');
 }
 
 window.showPaymentModal = (months, price) => {
@@ -276,13 +259,6 @@ window.openLink = (url) => {
     tg?.openLink ? tg.openLink(url) : window.open(url, '_blank');
 };
 
-window.resetUserData = async () => {
-    if (telegramId !== 'DEV_USER') return showToast('DEV ONLY', 'error');
-    await fetch(`${API_BASE}/user/${userId}`, { method: 'DELETE' });
-    showToast('Data reset', 'info');
-    window.dispatchEvent(new Event('db-update'));
-};
-
 async function copyText(text, msg) {
     if (!text || text.includes('...')) return;
     try {
@@ -306,7 +282,6 @@ window.copyVlessLink = async () => {
     await copyText(text, t.copied);
 };
 
-// NEW: QR Code generation function
 window.toggleQrCode = () => {
     const vlessLink = document.getElementById('vless-link-display').textContent.replace(/.*: /, '').trim();
     const qrDisplay = document.getElementById('qr-code-display');
@@ -314,25 +289,19 @@ window.toggleQrCode = () => {
     const qrBtn = document.getElementById('toggle-qr-btn');
     const t = TRANSLATIONS[currentLang];
 
-    // Hide if already visible
     if (qrDisplay.style.display === 'block') {
         qrDisplay.style.display = 'none';
         qrBtn.classList.remove('btn-primary');
         return;
     }
 
-    // Check if key is loaded
     if (vlessLink.includes('...')) {
         showToast(t.key_inactive, 'error');
         return;
     }
 
-    // Generate QR Code URL using Google Charts API (200x200)
     const qrCodeUrl = `https://chart.googleapis.com/chart?chs=200x200&cht=qr&chl=${encodeURIComponent(vlessLink)}`;
-
     qrPlaceholder.innerHTML = `<img src="${qrCodeUrl}" alt="QR Code" style="width: 200px; height: 200px; border-radius: 8px; border: 4px solid #7b2cbf; display: block; margin: 0 auto; box-shadow: 0 0 10px rgba(0, 212, 255, 0.5);">`;
-
-    // Show the QR code block
     qrDisplay.style.display = 'block';
     qrBtn.classList.add('btn-primary');
 };
@@ -387,7 +356,6 @@ function renderInstructionButtons() {
     }).join('');
 }
 
-// --- Live Updates & Subscription Logic ---
 window.startSubscriptionListener = async function () {
     const indicator = document.getElementById('status-indicator');
     const info = document.getElementById('status-info');
@@ -419,7 +387,7 @@ window.startSubscriptionListener = async function () {
             indicator.textContent = t.status_inactive; indicator.className = 'status-indicator status-inactive';
             info.innerHTML = `<p>${t.expiry_label} -</p>`;
             vlessDisplay.innerHTML = `<span style="color: #7b2cbf;">${t.key_inactive}</span>`;
-            if (qrBtn) qrBtn.disabled = true; // NEW: Disable QR button
+            if (qrBtn) qrBtn.disabled = true;
         } else if (isActive) {
             const date = new Date(expiryTime);
             const formatted = date.toLocaleDateString(currentLang, { year: 'numeric', month: 'long', day: 'numeric' });
@@ -434,18 +402,17 @@ window.startSubscriptionListener = async function () {
 
             info.innerHTML = `<p>${t.expiry_label} <span id="expiry-date">${formatted}</span></p>`;
             vlessDisplay.innerHTML = `<strong>${t.key_active}</strong> ${data.vless_key}`;
-            if (qrBtn) qrBtn.disabled = false; // NEW: Enable QR button
+            if (qrBtn) qrBtn.disabled = false;
         } else {
             indicator.textContent = t.status_expired; indicator.className = 'status-indicator status-inactive';
             info.innerHTML = `<p>${t.expiry_label} ${t.status_expired}</p>`;
             vlessDisplay.innerHTML = `<strong>${t.key_active}</strong> ${data.vless_key}`;
-            if (qrBtn) qrBtn.disabled = false; // NEW: Enable QR button
+            if (qrBtn) qrBtn.disabled = false;
         }
 
         if (data.trial_used) {
             trialCard.innerHTML = `
                         <p style="color: #38a169; font-weight: bold; margin-bottom: 15px;"><i class="fas fa-check-circle"></i> ${t.trial_used}.</p>
-                        ${telegramId === 'DEV_USER' ? `<button class="btn" id="reset-data-btn" style="background:#9b2c32;margin-top:10px;">RESET (DEV)</button>` : ''}
                     `;
         } else {
             trialCard.innerHTML = `<button class="btn btn-primary" id="start-trial-btn"><i class="fas fa-gift"></i> ${t.trial_btn}</button>`;
@@ -461,11 +428,9 @@ window.updateReferralUI = (count) => {
     document.getElementById('invited-count-display').innerHTML = `${t.invited_text} <strong>${count}</strong>`;
 };
 
-// --- Enhanced Toast ---
 window.showToast = (msg, type = 'info', dur = 3000) => {
     const container = document.getElementById('toast-container-box');
     const toast = document.createElement('div');
-
     let icon = '<i class="fas fa-info-circle"></i>';
     let className = 'toast-info';
 
@@ -479,7 +444,6 @@ window.showToast = (msg, type = 'info', dur = 3000) => {
 
     toast.className = `toast ${className}`;
     toast.innerHTML = `${icon} <span>${msg}</span>`;
-
     container.appendChild(toast);
 
     setTimeout(() => {
