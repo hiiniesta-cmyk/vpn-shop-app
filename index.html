@@ -6,7 +6,7 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    <title>Shinobu Proxy v2.6</title>
+    <title>Shinobu Proxy v3.0</title>
     <script src="https://telegram.org/js/telegram-web-app.js?v=2.2"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 
@@ -220,6 +220,40 @@
             padding: 3px 8px; font-size: 10px; border-radius: 3px; z-index: 10000;
         }
 
+        /* --- Accordion & Image Styles --- */
+        .instruction-wrapper { margin-bottom: 15px; width: 100%; }
+        
+        .instruction-content {
+            max-height: 0; overflow: hidden; transition: max-height 0.5s ease-out, padding 0.3s ease;
+            background: rgba(0, 0, 0, 0.2); border-radius: 0 0 15px 15px; border: 1px solid rgba(0, 212, 255, 0.3);
+            border-top: none; padding: 0 20px; opacity: 0;
+        }
+        /* ВЫСОТА ДОСТАТОЧНА ДЛЯ 5 ФОТО */
+        .instruction-content.open { max-height: 5000px; padding: 20px; opacity: 1; animation: fadeIn 0.4s ease; }
+        
+        .instruction-content h4 { color: #00d4ff; margin-bottom: 10px; font-size: 1.1em; }
+        .instruction-content ol { margin-left: 20px; line-height: 1.6; color: #e0e0e0; margin-bottom: 10px; }
+        .instruction-content li { margin-bottom: 8px; }
+        
+        /* Стили для картинок в инструкциях */
+        .instruction-img {
+            width: 100%;
+            max-width: 400px; 
+            height: auto;
+            border-radius: 8px;
+            margin: 15px 0; 
+            display: block;
+            border: 1px solid rgba(123, 44, 191, 0.5);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+        }
+
+        body.light-theme .instruction-content { background: #ffffff; border-color: rgba(0, 123, 255, 0.3); color: #2d3748; }
+        body.light-theme .instruction-content h4 { color: #007bff; }
+        body.light-theme .instruction-content ol { color: #4a5568; }
+        .accordion-icon { transition: transform 0.3s ease; margin-left: auto; }
+        .accordion-btn.active .accordion-icon { transform: rotate(180deg); }
+
+
         /* --- Modal --- */
         #payment-modal {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
@@ -254,7 +288,7 @@
     </style>
 </head>
 <body>
-    <div class="version-tag">v2.6</div>
+    <div class="version-tag">v3.0</div>
     
     <div class="controls-container">
         <button class="control-btn" id="lang-toggle-btn" aria-label="Change Language">
@@ -516,12 +550,105 @@
             androidtv: { name: 'Android TV', icon: 'fas fa-tv', url: 'https://github.com/2dust/v2rayNG/releases/download/1.10.28/v2rayNG_1.10.28-fdroid_universal.apk' }
         };
 
+        // !!! ЗДЕСЬ НАСТРОЕНЫ 5 ФОТО ДЛЯ КАЖДОЙ ИНСТРУКЦИИ !!!
         const INSTRUCTION_LINKS = {
-            android: { name: 'Android', icon: 'fas fa-book', url: 'https://telegra.ph/Kak-podklyuchitsya-k-Proxy-10-13' },
-            ios: { name: 'iOS', icon: 'fas fa-book', url: 'https://telegra.ph/Kak-podklyuchitsya-k-Proxy-10-13-5' },
-            windows: { name: 'Windows', icon: 'fas fa-book', url: 'https://telegra.ph/Kak-podklyuchitsya-k-Proxy-10-13-3' },
-            androidtv: { name: 'Android TV', icon: 'fas fa-book', url: 'https://telegra.ph/Kak-podklyuchitsya-k-Proxy-10-13-4' },
-            faq: { name: 'FAQ', icon: 'fas fa-lightbulb', url: 'https://telegra.ph/FAQ-01-01' }
+            android: { 
+                name: 'Android', 
+                icon: 'fab fa-android', 
+                html: `
+                    <h4>Настройка для Android (v2rayNG)</h4>
+                    <ol>
+                        <li>Скопируйте ваш ключ доступа на вкладке "Профиль".</li>
+                        <li>Скачайте приложение нажатием на кнопку <b>Android</b> (кнопка выше).</li>
+                        
+                        <li>Откройте приложение и нажмите <b>+</b> (или иконку меню).</li>
+                        
+                        <img src="https://shinobubest.github.io/web/resources/android/3.png" class="instruction-img" alt="Шаг 2">
+                        
+                        <li>Выберите "Импорт из буфера обмена".</li>
+                        
+                        <img src="https://shinobubest.github.io/web/resources/android/4.png" class="instruction-img" alt="Шаг 3">
+                        
+                        <li>Нажмите кнопку <b>►</b> (подключиться) внизу.</li>
+                        
+                        <img src="https://shinobubest.github.io/web/resources/android/5.png" class="instruction-img" alt="Шаг 5">
+                    </ol>`
+            },
+            ios: { 
+                name: 'iOS', 
+                icon: 'fab fa-apple', 
+                html: `
+                    <h4>Настройка для iPhone (V2RayTun)</h4>
+                    <ol>
+                        <li>Скопируйте ваш ключ доступа на вкладке "Профиль".</li>
+                        
+                        <li>Скачайте приложение нажатием на кнопку <b>IOS(V2RayTun)</b>.</li>
+                        
+                        <li>В правом верхнем углу приложения нажмите <b>+</b> .</li>
+                        
+                        <img src="https://shinobubest.github.io/web/resources/iphone/3.png" class="instruction-img" alt="Шаг 3">
+
+                        <li>Выберите "Добавить из буфера".</li>
+                        
+                        <img src="https://shinobubest.github.io/web/resources/iphone/4.png" class="instruction-img" alt="Шаг 4">
+
+                        <li>В центре нажмите на кнопку.</li>
+                        
+                        <img src="https://shinobubest.github.io/web/resources/iphone/5.png" class="instruction-img" alt="Шаг 5">
+                    </ol>`
+            },
+            windows: { 
+                name: 'Windows', 
+                icon: 'fab fa-windows', 
+                html: `
+                    <h4>Настройка для Windows (Hiddify)</h4>
+                    <ol>
+						<li>Скопируйте ваш ключ доступа на вкладке "Профиль".</li>
+                        
+						<li>Скачайте приложение нажатием на кнопку и установите (кнопка выше) <b>Windows</b>.</li>
+                        
+                        <li>Откройте программу, нажмите "Новый профиль" или "+".</li>
+                        
+                        <img src="https://shinobubest.github.io/web/resources/win/3.png" class="instruction-img" alt="Шаг 3">
+
+                        <li>Выберите "Добавить из буфера обмена".</li>
+                        
+                        <img src="https://shinobubest.github.io/web/resources/win/4.png" class="instruction-img" alt="Шаг 4">
+
+                        <li>Нажмите большую кнопку подключения по центру.</li>
+                    </ol>`
+            },
+            androidtv: { 
+                name: 'Android TV', 
+                icon: 'fas fa-tv', 
+                html: `
+                    <h4>Android TV</h4>
+                    <ol>
+                        <li>Скачайте приложение на Android(кнопка выше) и еще установите Send Files to TV из Google Play .</li>
+                        <li>Откройте на андроид смартфоне "Проводник" или Файловый менеджер и найдите скачанный файл v2rayNG.apk и "скриншот QR-кода" и нажмите кнопку поделиться и из предложенного списка приложений найдите иконку приложения Send files to TV.</li>
+                        <img src="https://shinobubest.github.io/web/resources/atv/2.png" class="instruction-img">
+                        <li>На телевизоре запустите приложение Send Files to TV (приложение запросит разрешение на доступ к фото и видео - нажмите Разрешить).</li>
+						<li>На андроид смартфоне выберите вашу приставку, на телевизоре подтвердите скачивание и приложение отправится на Android TV.</li>
+                        <img src="https://shinobubest.github.io/web/resources/atv/3.png" class="instruction-img">
+                        <li>Теперь вы можете открыть Файловый менеджер (File Manager+) и в загрузках найдите приложение v2rayNG.apk, установите его и зайдите в приложение.</li>
+						<li>В правом верхнем углу приложения нажмите «+» → выберите пункт «Импорт из QR-кода».</li>
+                        <img src="https://shinobubest.github.io/web/resources/atv/4.png" class="instruction-img">
+						<img src="https://shinobubest.github.io/web/resources/atv/5.png" class="instruction-img">
+						<li>Теперь вы должны нажать на иконку "Изображение" в правом верхнем углу.</li>
+						<img src="https://shinobubest.github.io/web/resources/atv/6.png" class="instruction-img">
+						<li>Внизу приложения нажмите «Запуск» и подтвердите разрешение на использование VPN-подключения.</li>
+						<img src="https://shinobubest.github.io/web/resources/atv/7.png" class="instruction-img">
+                    </ol>`
+            },
+            faq: { 
+                name: 'FAQ', 
+                icon: 'fas fa-lightbulb', 
+                html: `
+                    <h4>Частые вопросы</h4>
+                    <p><b>В: Низкая скорость?</b><br>О: Попробуйте переподключиться (выкл/вкл).</p>
+                    <p><b>В: Не подключается?</b><br>О: Проверьте, не истекла ли подписка в боте.</p>
+                `
+            }
         };
 
         const TARIFFS = [
@@ -668,6 +795,16 @@
             if (btn.id === 'go-to-yoomoney-btn') {
                 openLink(btn.dataset.url);
                 document.getElementById('payment-modal').style.display = 'none';
+                return;
+            }
+
+            // 4. Инструкции (Аккордеон)
+            if (btn.classList.contains('accordion-btn')) {
+                const contentId = btn.dataset.target;
+                const content = document.getElementById(contentId);
+                
+                btn.classList.toggle('active');
+                content.classList.toggle('open');
                 return;
             }
 
@@ -839,10 +976,25 @@
         }
 
         function renderInstructionButtons() {
-            document.getElementById('instructions-grid').innerHTML = Object.values(INSTRUCTION_LINKS).map(i => `
-                <button class="btn instruction-btn open-link-delegate" data-url="${i.url}">
-                    <i class="${i.icon}"></i> ${i.name}
-                </button>`).join('');
+            const container = document.getElementById('instructions-grid');
+            container.className = ''; 
+            container.style.display = 'flex';
+            container.style.flexDirection = 'column';
+            container.style.gap = '15px';
+
+            container.innerHTML = Object.keys(INSTRUCTION_LINKS).map(key => {
+                const i = INSTRUCTION_LINKS[key];
+                return `
+                <div class="instruction-wrapper">
+                    <button class="btn accordion-btn" style="width: 100%; justify-content: space-between;" data-target="inst-${key}">
+                        <span><i class="${i.icon}"></i> ${i.name}</span>
+                        <i class="fas fa-chevron-down accordion-icon"></i>
+                    </button>
+                    <div id="inst-${key}" class="instruction-content">
+                        ${i.html}
+                    </div>
+                </div>`;
+            }).join('');
         }
 
         // --- Live Updates & Subscription Logic ---
@@ -864,10 +1016,8 @@
                 const now = Date.now();
                 const isActive = data.vless_key && data.subscription_expiry && expiryTime > now;
                 
-                // Calculate days left
                 const daysLeft = isActive ? Math.ceil((expiryTime - now) / (1000 * 60 * 60 * 24)) : 0;
                 
-                // Renew Button Logic
                 if (!isActive || daysLeft < 5) {
                     renewContainer.style.display = 'block';
                 } else {
