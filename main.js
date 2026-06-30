@@ -1,5 +1,7 @@
 // --- Configuration & State ---
 let tg = null, telegramId = null, userId = null;
+let tgInitData = '';          // raw initData для авторизации на бэкенде
+let currentVlessKey = '';     // ключ храним в переменной, не парсим из DOM
 let currentLang = localStorage.getItem('lang') || 'ru';
 let isProcessing = false;
 let currentModalTariff = null;
@@ -9,39 +11,49 @@ const BOT_USERNAME = 'ShinobuProxyBot';
 const TRIAL_DAYS = 3;
 let API_BASE = localStorage.getItem('shinobu_api_base') || 'http://127.0.0.1:5000/api';
 
-// --- Firebase Mock (API wrapper) ---
+// REST-клиент. Пересоздаётся в load после получения initData.
+let api = new ShinobuAPI({ baseUrl: API_BASE });
+
+// --- API wrapper (Firestore-подобный фасад поверх ShinobuAPI) ---
+// Имена методов сохранены, чтобы не переписывать весь main.js.
+// Вся сеть идёт через объект `api` (api.js).
 window.firestore = {
     doc: () => ({}),
+
     getDoc: async () => {
         try {
-            const res = await fetch(`${API_BASE}/user/${userId}`);
-            if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-            const data = await res.json();
-            return { exists: () => !!data.vless_key || !!data.subscription_expiry, data: () => data };
+            const data = await api.getUser(userId);
+            return {
+                exists: () => !!data.vless_key || !!data.subscription_expiry,
+                data: () => data,
+            };
         } catch (error) {
             console.error("API Error:", error);
             return { exists: () => false, data: () => ({}) };
         }
     },
-    setDoc: async (ref, data, { merge } = {}) => {
+
+    /**
+     * setDoc(ref, data) — обновление профиля ИЛИ активация триала.
+     * Явный контракт: если data.action === 'activate_trial' — триал,
+     * иначе — обычное обновление полей. Никакого угадывания по status.
+     */
+    setDoc: async (ref, data = {}) => {
         try {
-            if (data.action === 'activate_trial' && isProcessing) return;
-            const payload = data.trial_used && data.status === 'active'
-                ? { action: 'activate_trial' }
-                : { ...data, telegramId };
-            const res = await fetch(`${API_BASE}/user/${userId}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-            if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+            if (data.action === 'activate_trial') {
+                if (isProcessing) return;
+                await api.activateTrial(userId, telegramId);
+            } else {
+                await api.updateUser(userId, { ...data, telegramId });
+            }
             window.dispatchEvent(new Event('db-update'));
         } catch (error) {
             console.error("API Push Error:", error);
-            showToast('Network error.', 'error');
+            showToast(error.message || 'Network error.', 'error');
             throw error;
         }
     },
+
     onSnapshot: (ref, callback) => {
         let isCancelled = false;
         const poll = async () => {
@@ -66,6 +78,8 @@ window.addEventListener('load', () => {
         tg.enableClosingConfirmation();
         tg.setHeaderColor('#0a0a0f');
         tg.setBackgroundColor('#0a0a0f');
+        // raw initData — подписанная строка для авторизации на бэкенде
+        tgInitData = tg.initData || '';
     }
 
     updateLanguage(currentLang);
@@ -74,6 +88,9 @@ window.addEventListener('load', () => {
     telegramId = tg?.initDataUnsafe?.user?.id || 'DEV_USER';
     if (telegramId === 'DEV_USER') localStorage.setItem('shinobu_user_id', userId);
     else userId = String(telegramId);
+
+    // Пересоздаём REST-клиент: теперь с актуальным baseUrl и подписью initData
+    api = new ShinobuAPI({ baseUrl: API_BASE, initData: tgInitData });
 
     let userFirstName = 'User', userLastName = '', userUsername = 'None';
     if (tg?.initDataUnsafe?.user) {
@@ -214,15 +231,9 @@ async function handleStarsPayment() {
         return;
     }
 
-    // Telegram Stars Invoice via Bot API
-    // The bot must create an invoice and send it; here we trigger it via API
+    // Telegram Stars Invoice via Bot API (через наш REST-клиент)
     try {
-        const res = await fetch(`${API_BASE}/create_stars_invoice`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userId, telegramId, months, stars })
-        });
-        const data = await res.json();
+        const data = await api.createStarsInvoice({ userId, telegramId, months, stars });
 
         if (data.invoice_link) {
             // Open Telegram payment directly
@@ -305,7 +316,7 @@ window.showPaymentModal = (months, price, stars) => {
 };
 
 window.startTrial = async () => {
-    await window.firestore.setDoc(null, { status: 'active', trial_used: true }, { merge: true });
+    await window.firestore.setDoc(null, { action: 'activate_trial' });
     showToast(TRANSLATIONS[currentLang].trial_success, 'success');
 };
 
@@ -330,18 +341,16 @@ async function copyText(text, msg) {
 }
 
 window.copyVlessLink = async () => {
-    const raw = document.getElementById('vless-link-display').textContent;
-    const text = raw.replace(/^КЛЮЧ:\s*|^KEY:\s*/i, '').trim();
     const t = TRANSLATIONS[currentLang];
-    if (!text || text.includes('Загрузка') || text.includes('появится')) {
+    const text = (currentVlessKey || '').trim();
+    if (!text.startsWith('vless://')) {
         return showToast(t.key_inactive, 'error');
     }
     await copyText(text, t.copied);
 };
 
 window.toggleQrCode = () => {
-    const raw = document.getElementById('vless-link-display').textContent;
-    const vlessLink = raw.replace(/^КЛЮЧ:\s*|^KEY:\s*/i, '').trim();
+    const vlessLink = (currentVlessKey || '').trim();
     const qrDisplay = document.getElementById('qr-code-display');
     const qrPlaceholder = document.getElementById('qr-code-placeholder');
     const qrBtn = document.getElementById('toggle-qr-btn');
@@ -357,8 +366,21 @@ window.toggleQrCode = () => {
         return;
     }
 
-    const qrUrl = `https://chart.googleapis.com/chart?chs=200x200&cht=qr&chl=${encodeURIComponent(vlessLink)}`;
-    qrPlaceholder.innerHTML = `<img src="${qrUrl}" alt="QR Code" class="qr-img">`;
+    // Google Charts QR API отключён в 2024 — используем qrcode.js (подключён в index.html)
+    qrPlaceholder.innerHTML = '';
+    if (window.QRCode) {
+        new QRCode(qrPlaceholder, {
+            text: vlessLink,
+            width: 200,
+            height: 200,
+            colorDark: '#0a0a0f',
+            colorLight: '#ffffff',
+            correctLevel: QRCode.CorrectLevel.M,
+        });
+    } else {
+        showToast('QR library not loaded', 'error');
+        return;
+    }
     qrDisplay.style.display = 'block';
     qrBtn.classList.add('active-icon-btn');
 };
@@ -453,6 +475,9 @@ window.startSubscriptionListener = async function () {
     const handleSnapshot = (docSnap) => {
         const data = docSnap.data();
         const t = TRANSLATIONS[currentLang];
+
+        // Храним ключ в переменной — не парсим обратно из DOM
+        currentVlessKey = data.vless_key || '';
 
         const balance = data.balance ? parseFloat(data.balance).toFixed(2) : '0.00';
         balanceEl.textContent = `${balance} ₽`;
