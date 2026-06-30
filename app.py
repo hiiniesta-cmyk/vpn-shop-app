@@ -18,6 +18,7 @@ import time
 import logging
 from datetime import datetime, timedelta
 from functools import wraps
+from urllib.parse import parse_qsl
 
 import requests
 from flask import Flask, request, jsonify, g
@@ -143,17 +144,93 @@ def send_telegram_message(chat_id, text: str):
     except Exception as e:
         log.warning("Telegram send failed: %s", e)
 
-def verify_telegram_init_data(init_data: str) -> bool:
-    """Проверить подпись initData от Telegram WebApp."""
+# Максимальный возраст initData (сек). Защита от повторного использования
+# украденной строки. 0 = не проверять возраст.
+INITDATA_MAX_AGE = int(os.getenv("INITDATA_MAX_AGE", 86400))  # сутки
+
+def parse_and_verify_init_data(init_data: str):
+    """
+    Проверить подпись initData от Telegram WebApp.
+
+    Возвращает dict с разобранными полями (включая распарсенный 'user'),
+    если подпись валидна и данные не протухли. Иначе — None.
+
+    Алгоритм (по докам Telegram):
+      1. Разобрать query-string в пары ключ=значение.
+      2. Вынуть 'hash'.
+      3. Собрать data_check_string: отсортированные "key=value", склеенные \\n.
+      4. secret_key = HMAC_SHA256("WebAppData", bot_token).
+      5. Сверить HMAC_SHA256(secret_key, data_check_string) с hash.
+    """
+    if not init_data:
+        return None
     try:
-        data = dict(x.split("=", 1) for x in init_data.split("&"))
-        received_hash = data.pop("hash", "")
-        check_string = "\n".join(f"{k}={v}" for k, v in sorted(data.items()))
-        secret = hmac.new(b"WebAppData", BOT_TOKEN.encode(), hashlib.sha256).digest()
-        computed = hmac.new(secret, check_string.encode(), hashlib.sha256).hexdigest()
-        return hmac.compare_digest(computed, received_hash)
+        # parse_qsl корректно декодирует %XX и не ломается на '=' внутри значений
+        pairs = dict(parse_qsl(init_data, strict_parsing=True))
     except Exception:
-        return False
+        return None
+
+    received_hash = pairs.pop("hash", None)
+    if not received_hash:
+        return None
+
+    check_string = "\n".join(f"{k}={pairs[k]}" for k in sorted(pairs))
+    secret = hmac.new(b"WebAppData", BOT_TOKEN.encode(), hashlib.sha256).digest()
+    computed = hmac.new(secret, check_string.encode(), hashlib.sha256).hexdigest()
+
+    if not hmac.compare_digest(computed, received_hash):
+        return None
+
+    # Проверка свежести
+    if INITDATA_MAX_AGE > 0:
+        try:
+            auth_date = int(pairs.get("auth_date", "0"))
+            if time.time() - auth_date > INITDATA_MAX_AGE:
+                return None
+        except ValueError:
+            return None
+
+    # Распарсить вложенный JSON пользователя
+    if "user" in pairs:
+        try:
+            pairs["user"] = json.loads(pairs["user"])
+        except Exception:
+            pairs["user"] = {}
+
+    return pairs
+
+
+def require_telegram_auth(f):
+    """
+    Декоратор: требует валидный X-Telegram-Init-Data.
+    Кладёт g.tg_user (dict) и g.tg_user_id (str) для использования в обработчике.
+
+    В DEV-режиме (BOT_TOKEN не настроен или AUTH_DISABLED=1) пропускает
+    запрос без проверки — удобно для локальной отладки тест-клиентом.
+    """
+    @wraps(f)
+    def wrapper(*args, **kwargs):
+        dev_mode = (
+            os.getenv("AUTH_DISABLED", "0") == "1"
+            or BOT_TOKEN == "YOUR_BOT_TOKEN_HERE"
+        )
+        init_data = request.headers.get("X-Telegram-Init-Data", "")
+
+        verified = parse_and_verify_init_data(init_data) if init_data else None
+
+        if verified:
+            g.tg_user = verified.get("user", {})
+            g.tg_user_id = str(g.tg_user.get("id", ""))
+        elif dev_mode:
+            # без подписи, но в деве — доверяем заявленному id
+            g.tg_user = {}
+            g.tg_user_id = ""
+            log.warning("AUTH bypassed (dev mode) for %s", request.path)
+        else:
+            return jsonify({"error": "Invalid or missing Telegram auth"}), 401
+
+        return f(*args, **kwargs)
+    return wrapper
 
 def require_admin(f):
     @wraps(f)
@@ -167,7 +244,12 @@ def require_admin(f):
 # ─── API Routes ────────────────────────────────────────────────────────────────
 
 @app.route("/api/user/<user_id>", methods=["GET"])
+@require_telegram_auth
 def get_user(user_id):
+    # Защита: нельзя читать чужой профиль. В dev-режиме g.tg_user_id пуст — пропускаем.
+    if g.tg_user_id and g.tg_user_id != str(user_id):
+        return jsonify({"error": "Forbidden"}), 403
+
     db = get_db()
     row = db.execute("SELECT * FROM users WHERE user_id=?", (user_id,)).fetchone()
     if not row:
@@ -182,7 +264,11 @@ def get_user(user_id):
 
 
 @app.route("/api/user/<user_id>", methods=["POST"])
+@require_telegram_auth
 def update_user(user_id):
+    if g.tg_user_id and g.tg_user_id != str(user_id):
+        return jsonify({"error": "Forbidden"}), 403
+
     db   = get_db()
     data = request.get_json(force=True) or {}
     now  = int(time.time())
@@ -205,6 +291,9 @@ def update_user(user_id):
         vless_key = user["vless_key"]
         if not vless_key:
             vless_key = assign_key_from_pool(db, user_id)
+        # Если ключей в пуле нет — не активируем триал вхолостую
+        if not vless_key:
+            return jsonify({"error": "No keys available, try later"}), 503
 
         new_expiry = now + TRIAL_DAYS * 86400
         db.execute(
@@ -240,6 +329,7 @@ def update_user(user_id):
 
 
 @app.route("/api/create_stars_invoice", methods=["POST"])
+@require_telegram_auth
 def create_stars_invoice():
     """
     Создать Telegram Stars Invoice через Bot API.
