@@ -21,6 +21,11 @@ const TRANSLATIONS = {
         month_1: "мес.", month_few: "мес.", month_many: "мес.",
         key_label: "Ваш ключ", key_active: "КЛЮЧ:", key_inactive: "Ключ появится после активации",
         renew_btn: "Продлить подписку",
+        greeting: "Привет,", profile_sub: "Ваш VPN сегодня", renew_hint: "Подписка скоро закончится",
+        tile_copy: "Копировать", tile_qr: "QR-код", tile_renew: "Продлить", tile_invite: "Пригласить",
+        setup_sub: "Установка за пару минут", ref_sub: "Приглашай — получай дни", tariffs_sub: "Оплата через Telegram Stars ⭐",
+        select_btn: "Выбрать", per_month: "₽/мес", off: "скидка",
+        feat_unlimited: "Безлимитный трафик", feat_vless: "VLESS протокол", feat_support: "Поддержка 24/7", feat_priority: "Приоритетная поддержка",
         processing: "Обработка...",
         copied: "Скопировано!", link_copied: "Ссылка скопирована!",
         trial_success: "Пробный период активирован!",
@@ -51,6 +56,11 @@ const TRANSLATIONS = {
         month_1: "mo.", month_few: "mo.", month_many: "mo.",
         key_label: "Your key", key_active: "KEY:", key_inactive: "Key appears after activation",
         renew_btn: "Renew Subscription",
+        greeting: "Hi,", profile_sub: "Your VPN today", renew_hint: "Subscription ending soon",
+        tile_copy: "Copy", tile_qr: "QR code", tile_renew: "Renew", tile_invite: "Invite",
+        setup_sub: "Set up in a couple minutes", ref_sub: "Invite — earn days", tariffs_sub: "Pay via Telegram Stars ⭐",
+        select_btn: "Choose", per_month: "₽/mo", off: "off",
+        feat_unlimited: "Unlimited traffic", feat_vless: "VLESS protocol", feat_support: "24/7 support", feat_priority: "Priority support",
         processing: "Processing...",
         copied: "Copied!", link_copied: "Link copied!",
         trial_success: "Trial activated!",
@@ -73,7 +83,7 @@ const TARIFFS = [
         stars: 80,
         badge: null,
         discountPct: 0,
-        features: ['Безлимитный трафик', 'VLESS протокол', 'Поддержка 24/7']
+        features: ['feat_unlimited', 'feat_vless', 'feat_support']
     },
     {
         id: 'month_3',
@@ -82,7 +92,7 @@ const TARIFFS = [
         stars: 215,
         badge: 'save',        // Popular
         discountPct: 10,
-        features: ['Безлимитный трафик', 'VLESS протокол', 'Поддержка 24/7', '10% скидка']
+        features: ['feat_unlimited', 'feat_vless', 'feat_support']
     },
     {
         id: 'month_6',
@@ -91,7 +101,7 @@ const TARIFFS = [
         stars: 380,
         badge: null,
         discountPct: 20,
-        features: ['Безлимитный трафик', 'VLESS протокол', 'Поддержка 24/7', '20% скидка']
+        features: ['feat_unlimited', 'feat_vless', 'feat_support']
     },
     {
         id: 'month_12',
@@ -100,7 +110,7 @@ const TARIFFS = [
         stars: 635,
         badge: 'best',        // Best price
         discountPct: 33,
-        features: ['Безлимитный трафик', 'VLESS протокол', 'Поддержка 24/7', 'Приоритетная поддержка', '33% скидка']
+        features: ['feat_unlimited', 'feat_vless', 'feat_support', 'feat_priority']
     }
 ];
 
@@ -115,7 +125,8 @@ const INSTRUCTION_LINKS = {
     android: {
         name: 'Android',
         icon: 'fab fa-android',
-        html: `
+        html: {
+            ru: `
             <h4>Настройка для Android (v2rayNG)</h4>
             <ol>
                 <li>Скопируйте ваш ключ на вкладке «Профиль».</li>
@@ -125,12 +136,25 @@ const INSTRUCTION_LINKS = {
                 <img src="https://shinobubest.github.io/web/resources/android/4.png" class="instruction-img" alt="Шаг 4">
                 <li>Нажмите кнопку <b>►</b> внизу для подключения.</li>
                 <img src="https://shinobubest.github.io/web/resources/android/5.png" class="instruction-img" alt="Шаг 5">
+            </ol>`,
+            en: `
+            <h4>Setup for Android (v2rayNG)</h4>
+            <ol>
+                <li>Copy your key on the “Profile” tab.</li>
+                <li>Download and install <b>v2rayNG</b>.</li>
+                <li>Tap <b>+</b> → “Import config from clipboard”.</li>
+                <img src="https://shinobubest.github.io/web/resources/android/3.png" class="instruction-img" alt="Step 3">
+                <img src="https://shinobubest.github.io/web/resources/android/4.png" class="instruction-img" alt="Step 4">
+                <li>Tap the <b>►</b> button at the bottom to connect.</li>
+                <img src="https://shinobubest.github.io/web/resources/android/5.png" class="instruction-img" alt="Step 5">
             </ol>`
+        }
     },
     ios: {
         name: 'iOS (V2RayTun)',
         icon: 'fab fa-apple',
-        html: `
+        html: {
+            ru: `
             <h4>Настройка для iPhone (V2RayTun)</h4>
             <ol>
                 <li>Скопируйте ваш ключ на вкладке «Профиль».</li>
@@ -140,12 +164,25 @@ const INSTRUCTION_LINKS = {
                 <img src="https://shinobubest.github.io/web/resources/iphone/4.png" class="instruction-img" alt="Шаг 4">
                 <li>Нажмите кнопку подключения в центре.</li>
                 <img src="https://shinobubest.github.io/web/resources/iphone/5.png" class="instruction-img" alt="Шаг 5">
+            </ol>`,
+            en: `
+            <h4>Setup for iPhone (V2RayTun)</h4>
+            <ol>
+                <li>Copy your key on the “Profile” tab.</li>
+                <li>Download <b>V2RayTun</b> from the App Store.</li>
+                <li>Tap <b>+</b> in the top-right corner → “Add from clipboard”.</li>
+                <img src="https://shinobubest.github.io/web/resources/iphone/3.png" class="instruction-img" alt="Step 3">
+                <img src="https://shinobubest.github.io/web/resources/iphone/4.png" class="instruction-img" alt="Step 4">
+                <li>Tap the connect button in the center.</li>
+                <img src="https://shinobubest.github.io/web/resources/iphone/5.png" class="instruction-img" alt="Step 5">
             </ol>`
+        }
     },
     windows: {
         name: 'Windows (Hiddify)',
         icon: 'fab fa-windows',
-        html: `
+        html: {
+            ru: `
             <h4>Настройка для Windows (Hiddify)</h4>
             <ol>
                 <li>Скопируйте ваш ключ на вкладке «Профиль».</li>
@@ -155,12 +192,25 @@ const INSTRUCTION_LINKS = {
                 <li>«Добавить из буфера обмена».</li>
                 <img src="https://shinobubest.github.io/web/resources/win/4.png" class="instruction-img" alt="Шаг 4">
                 <li>Нажмите большую кнопку подключения по центру.</li>
+            </ol>`,
+            en: `
+            <h4>Setup for Windows (Hiddify)</h4>
+            <ol>
+                <li>Copy your key on the “Profile” tab.</li>
+                <li>Download and install <b>Hiddify</b>.</li>
+                <li>Click “New profile” or “+”.</li>
+                <img src="https://shinobubest.github.io/web/resources/win/3.png" class="instruction-img" alt="Step 3">
+                <li>“Add from clipboard”.</li>
+                <img src="https://shinobubest.github.io/web/resources/win/4.png" class="instruction-img" alt="Step 4">
+                <li>Click the big connect button in the center.</li>
             </ol>`
+        }
     },
     androidtv: {
         name: 'Android TV',
         icon: 'fas fa-tv',
-        html: `
+        html: {
+            ru: `
             <h4>Настройка для Android TV</h4>
             <ol>
                 <li>Скачайте <b>v2rayNG</b> на смартфон и <b>Send Files to TV</b> из Google Play (на TV и смартфон).</li>
@@ -175,12 +225,30 @@ const INSTRUCTION_LINKS = {
                 <img src="https://shinobubest.github.io/web/resources/atv/6.png" class="instruction-img">
                 <li>Выберите QR-код, нажмите «Запуск».</li>
                 <img src="https://shinobubest.github.io/web/resources/atv/7.png" class="instruction-img">
+            </ol>`,
+            en: `
+            <h4>Setup for Android TV</h4>
+            <ol>
+                <li>Install <b>v2rayNG</b> on your phone and <b>Send Files to TV</b> from Google Play (on both the TV and the phone).</li>
+                <li>On your phone open a file manager, find <b>v2rayNG.apk</b> and tap “Share” → Send Files to TV.</li>
+                <img src="https://shinobubest.github.io/web/resources/atv/2.png" class="instruction-img">
+                <li>On the TV open Send Files to TV and confirm receiving the file.</li>
+                <img src="https://shinobubest.github.io/web/resources/atv/3.png" class="instruction-img">
+                <li>Install the APK via the file manager. Open v2rayNG.</li>
+                <li>Tap “+” → “Import config from QR code” → the “Image” icon.</li>
+                <img src="https://shinobubest.github.io/web/resources/atv/4.png" class="instruction-img">
+                <img src="https://shinobubest.github.io/web/resources/atv/5.png" class="instruction-img">
+                <img src="https://shinobubest.github.io/web/resources/atv/6.png" class="instruction-img">
+                <li>Select the QR code and tap “Run”.</li>
+                <img src="https://shinobubest.github.io/web/resources/atv/7.png" class="instruction-img">
             </ol>`
+        }
     },
     faq: {
         name: 'FAQ',
         icon: 'fas fa-circle-question',
-        html: `
+        html: {
+            ru: `
             <h4>Частые вопросы</h4>
 
             <div class="faq-item">
@@ -227,6 +295,55 @@ const INSTRUCTION_LINKS = {
                 <div class="faq-q"><i class="fas fa-chevron-right"></i> Можно ли получить возврат?</div>
                 <div class="faq-a">Возвраты рассматриваются индивидуально в течение 24 часов с момента покупки. Напишите в поддержку через бота.</div>
             </div>
+        `,
+            en: `
+            <h4>Frequently asked questions</h4>
+
+            <div class="faq-item">
+                <div class="faq-q"><i class="fas fa-chevron-right"></i> What is VLESS?</div>
+                <div class="faq-a">VLESS is a modern VPN protocol with minimal overhead and high speed. It resists blocking and DPI detection.</div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-q"><i class="fas fa-chevron-right"></i> I’ve paid — when will I get the key?</div>
+                <div class="faq-a"><b>Stars:</b> the key is issued instantly and automatically.<br><b>YooMoney:</b> the bot sends the key to the chat within 1–5 minutes. If it takes longer — contact support.</div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-q"><i class="fas fa-chevron-right"></i> Can I use it on several devices?</div>
+                <div class="faq-a">Yes, the key works on several devices at the same time. There are no limits.</div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-q"><i class="fas fa-chevron-right"></i> What connection speed can I expect?</div>
+                <div class="faq-a">Speed depends on your internet provider. Our servers don’t throttle traffic — the limit is your provider’s plan.</div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-q"><i class="fas fa-chevron-right"></i> Where are the servers located?</div>
+                <div class="faq-a">The servers are located in EU countries. Routing is optimized for users from Russia.</div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-q"><i class="fas fa-chevron-right"></i> What are Telegram Stars?</div>
+                <div class="faq-a">Telegram Stars are Telegram’s in-app currency. You can buy them right in Telegram via settings (Telegram Premium → Stars). Payment is instant, no card needed.</div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-q"><i class="fas fa-chevron-right"></i> How does the referral program work?</div>
+                <div class="faq-a">Copy your referral link and send it to a friend. When they pay for any plan — you BOTH automatically get +10 days added to your subscription.</div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-q"><i class="fas fa-chevron-right"></i> What if the VPN won’t connect?</div>
+                <div class="faq-a">1. Make sure your subscription is active.<br>2. Check that the key was copied in full.<br>3. Try reconnecting or recreating the config.<br>4. Contact the support bot.</div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-q"><i class="fas fa-chevron-right"></i> Can I get a refund?</div>
+                <div class="faq-a">Refunds are reviewed individually within 24 hours of purchase. Contact support via the bot.</div>
+            </div>
         `
+        }
     }
 };
