@@ -3,18 +3,19 @@ let tg = null, telegramId = null, userId = null;
 let tgInitData = '';          // raw initData для авторизации на бэкенде
 let currentVlessKey = '';     // ключ храним в переменной, не парсим из DOM
 let currentLang = localStorage.getItem('lang') || 'ru';
+let currentTheme = localStorage.getItem('plusvpn_theme') || 'light';
 let isProcessing = false;
 let currentModalTariff = null;
 
 const YOOMONEY_RECIPIENT_ID = '4100119271147598';
-const BOT_USERNAME = 'ShinobuProxyBot';
+const BOT_USERNAME = 'PlusVpnBot';
 const TRIAL_DAYS = 3;
-let API_BASE = localStorage.getItem('shinobu_api_base') || 'http://127.0.0.1:5000/api';
+let API_BASE = localStorage.getItem('plusvpn_api_base') || 'http://127.0.0.1:5000/api';
 
 // REST-клиент. Пересоздаётся в load после получения initData.
-let api = new ShinobuAPI({ baseUrl: API_BASE });
+let api = new PlusVpnAPI({ baseUrl: API_BASE });
 
-// --- API wrapper (Firestore-подобный фасад поверх ShinobuAPI) ---
+// --- API wrapper (Firestore-подобный фасад поверх PlusVpnAPI) ---
 // Имена методов сохранены, чтобы не переписывать весь main.js.
 // Вся сеть идёт через объект `api` (api.js).
 window.firestore = {
@@ -76,21 +77,20 @@ window.addEventListener('load', () => {
         tg.ready();
         tg.expand();
         tg.enableClosingConfirmation();
-        tg.setHeaderColor('#0a0a0f');
-        tg.setBackgroundColor('#0a0a0f');
         // raw initData — подписанная строка для авторизации на бэкенде
         tgInitData = tg.initData || '';
     }
 
+    applyTheme(currentTheme);   // выставит data-theme, иконку и цвет шапки Telegram
     updateLanguage(currentLang);
 
-    userId = localStorage.getItem('shinobu_user_id') || 'local_' + Math.random().toString(36).substr(2, 9);
+    userId = localStorage.getItem('plusvpn_user_id') || 'local_' + Math.random().toString(36).substr(2, 9);
     telegramId = tg?.initDataUnsafe?.user?.id || 'DEV_USER';
-    if (telegramId === 'DEV_USER') localStorage.setItem('shinobu_user_id', userId);
+    if (telegramId === 'DEV_USER') localStorage.setItem('plusvpn_user_id', userId);
     else userId = String(telegramId);
 
     // Пересоздаём REST-клиент: теперь с актуальным baseUrl и подписью initData
-    api = new ShinobuAPI({ baseUrl: API_BASE, initData: tgInitData });
+    api = new PlusVpnAPI({ baseUrl: API_BASE, initData: tgInitData });
 
     let userFirstName = 'User', userLastName = '', userUsername = 'None';
     if (tg?.initDataUnsafe?.user) {
@@ -129,6 +129,12 @@ window.addEventListener('click', (e) => {
     // Navigation
     if (btn.classList.contains('nav-btn')) { switchTab(btn.dataset.target); return; }
     if (btn.classList.contains('nav-btn-proxy')) { switchTab(btn.dataset.targetTab); return; }
+
+    // Theme toggle
+    if (btn.id === 'theme-toggle-btn') {
+        applyTheme(currentTheme === 'light' ? 'dark' : 'light');
+        return;
+    }
 
     // Language toggle
     if (btn.id === 'lang-toggle-btn') {
@@ -208,7 +214,7 @@ window.addEventListener('click', (e) => {
         lockAction(async () => {
             const link = document.getElementById('referral-link-display').textContent;
             if (tg?.openTelegramLink) {
-                tg.openTelegramLink(`https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent('Попробуй Shinobu Proxy! 🔥')}`);
+                tg.openTelegramLink(`https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent('Попробуй PLUSVPN! 🔥')}`);
             } else {
                 await copyText(link, TRANSLATIONS[currentLang].link_copied);
             }
@@ -262,6 +268,23 @@ async function handleStarsPayment() {
 }
 
 // --- Core Functions ---
+// --- Theme (dark / light) ---
+function applyTheme(theme) {
+    currentTheme = theme;
+    localStorage.setItem('plusvpn_theme', theme);
+
+    if (theme === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+    else document.documentElement.removeAttribute('data-theme');
+
+    // иконка показывает, КУДА переключит следующий клик
+    const icon = document.querySelector('#theme-toggle-btn i');
+    if (icon) icon.className = theme === 'light' ? 'fas fa-moon' : 'fas fa-sun';
+
+    // синхронизируем фон/шапку Telegram WebApp с темой
+    const bg = theme === 'light' ? '#e9e1d6' : '#171512';
+    try { tg?.setHeaderColor?.(bg); tg?.setBackgroundColor?.(bg); } catch (e) {}
+}
+
 function updateLanguage(lang) {
     localStorage.setItem('lang', lang);
     currentLang = lang;
@@ -274,6 +297,7 @@ function updateLanguage(lang) {
     });
 
     renderTariffs();
+    renderInstructionButtons();
     window.dispatchEvent(new Event('db-update'));
 }
 
@@ -295,7 +319,7 @@ window.showPaymentModal = (months, price, stars) => {
     currentModalTariff = { months, price, stars };
 
     const comment = `Pay_${months}m_${telegramId}`;
-    const yooUrl = `https://yoomoney.ru/quickpay/confirm.xml?receiver=${YOOMONEY_RECIPIENT_ID}&quickpay-form=shop&targets=Shinobu+${months}m&sum=${price.toFixed(2)}&comment=${encodeURIComponent(comment)}&paymentType=AC`;
+    const yooUrl = `https://yoomoney.ru/quickpay/confirm.xml?receiver=${YOOMONEY_RECIPIENT_ID}&quickpay-form=shop&targets=PLUSVPN+${months}m&sum=${price.toFixed(2)}&comment=${encodeURIComponent(comment)}&paymentType=AC`;
 
     const t = TRANSLATIONS[currentLang];
     const mLabel = months === 1 ? t.month_1 : t.month_many;
@@ -373,7 +397,7 @@ window.toggleQrCode = () => {
             text: vlessLink,
             width: 200,
             height: 200,
-            colorDark: '#0a0a0f',
+            colorDark: '#0b0f10',
             colorLight: '#ffffff',
             correctLevel: QRCode.CorrectLevel.M,
         });
@@ -414,22 +438,21 @@ function renderTariffs() {
             <div class="tariff-period">
                 <span class="tariff-months">${tariff.months}</span>
                 <span class="tariff-month-label">${mLabel}</span>
-                ${discountHtml}
             </div>
             <div class="tariff-price-block">
-                ${oldPrice}
+                <div class="tariff-oldprice-row">${oldPrice}${discountHtml}</div>
                 <div class="tariff-price">${tariff.price.toFixed(0)} <span class="tariff-currency">₽</span></div>
-                <div class="tariff-per-month">${pricePerMonth} ₽/мес</div>
+                <div class="tariff-per-month">${pricePerMonth} ${t.per_month}</div>
                 <div class="tariff-stars-price">⭐ ${tariff.stars} Stars</div>
             </div>
             <ul class="tariff-features">
-                ${tariff.features.map(f => `<li><i class="fas fa-check"></i> ${f}</li>`).join('')}
+                ${[...tariff.features.map(k => t[k] || k), ...(tariff.discountPct > 0 ? [`${tariff.discountPct}% ${t.off}`] : [])].map(f => `<li><i class="fas fa-check"></i> ${f}</li>`).join('')}
             </ul>
             <button class="btn btn-tariff tariff-btn-delegate"
                 data-months="${tariff.months}"
                 data-price="${tariff.price}"
                 data-stars="${tariff.stars}">
-                <i class="fas fa-bolt"></i> Выбрать
+                <i class="fas fa-bolt"></i> ${t.select_btn}
             </button>
         </div>`;
     }).join('');
@@ -453,7 +476,7 @@ function renderInstructionButtons() {
                 <i class="fas fa-chevron-down accordion-icon"></i>
             </button>
             <div id="inst-${key}" class="instruction-content">
-                ${i.html}
+                ${(i.html && i.html[currentLang]) || (i.html && i.html.ru) || i.html}
             </div>
         </div>`;
     }).join('');
@@ -522,8 +545,8 @@ window.startSubscriptionListener = async function () {
             progressWrap.style.display = 'block';
             daysBarFill.style.width = `${pct}%`;
             daysBarFill.style.background = daysLeft < 5
-                ? 'linear-gradient(90deg, #ff4747, #ffaa00)'
-                : 'linear-gradient(90deg, #00d4ff, #7b2cbf)';
+                ? 'linear-gradient(90deg, #c25541, #ddb863)'
+                : 'linear-gradient(90deg, #ddb863, #c7a24c)';
             daysLeftLabel.textContent = `${t.days_left} ${daysLeft}`;
             if (qrBtn) qrBtn.disabled = false;
         } else {
