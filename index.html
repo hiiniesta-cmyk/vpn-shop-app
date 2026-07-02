@@ -1,12 +1,16 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
+    <script>
+        // Применяем сохранённую тему до отрисовки — без «вспышки». По умолчанию светлая (крем).
+        (function(){ try { if (localStorage.getItem('plusvpn_theme') === 'dark') document.documentElement.setAttribute('data-theme','dark'); } catch(e){} })();
+    </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    <title>Shinobu Proxy v4.0</title>
+    <title>PLUSVPN v4.0</title>
     <script src="https://telegram.org/js/telegram-web-app.js?v=2.2"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <script src="static.js"></script>
@@ -14,93 +18,80 @@
     <script src="main.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <div class="version-tag">v4.0</div>
-
-    <div class="controls-container">
-        <button class="control-btn" id="lang-toggle-btn" aria-label="Change Language">
-            <span class="lang-text">RU</span>
-        </button>
-    </div>
-
     <div id="toast-container-box" class="toast-container"></div>
 
-    <!-- Animated background -->
-    <div class="bg-grid"></div>
-    <div class="orb orb1"></div>
-    <div class="orb orb2"></div>
-    <div class="orb orb3"></div>
-    <div class="scanline"></div>
+    <!-- TOP BAR -->
+    <header class="topbar">
+        <button class="topbar-menu" id="menu-btn" aria-label="Меню">
+            <span class="brand-glyph">+</span>
+        </button>
+        <div class="topbar-title">
+            <span class="brand-name">PLUS<span>VPN</span></span>
+        </div>
+        <div class="topbar-actions">
+            <button class="control-btn" id="theme-toggle-btn" aria-label="Тема">
+                <i class="fas fa-moon"></i>
+            </button>
+            <button class="control-btn" id="lang-toggle-btn" aria-label="Язык">
+                <span class="lang-text">RU</span>
+            </button>
+            <div class="topbar-avatar" id="user-avatar-placeholder"><i class="fas fa-user"></i></div>
+        </div>
+    </header>
 
     <div class="container">
-
-        <header>
-            <div class="logo-wrapper">
-                <div class="logo-glyph">忍</div>
-                <div class="logo-text">
-                    <span class="logo-main">SHINOBU</span>
-                    <span class="logo-sub">PROXY</span>
-                </div>
-            </div>
-            <div class="tagline" data-i18n="tagline">Ваша приватность — наш приоритет</div>
-        </header>
-
-        <div class="user-info-header">
-            <div class="user-avatar" id="user-avatar-placeholder">
-                <i class="fas fa-user"></i>
-            </div>
-            <div class="user-details">
-                <h3 id="user-full-name">Loading...</h3>
-                <p>ID: <span id="telegram-id-display">...</span></p>
-                <p>@<span id="username-display">...</span></p>
-            </div>
-            <div class="user-badge" id="user-status-badge">—</div>
-        </div>
-
-        <nav class="nav-tabs">
-            <button class="nav-btn active" data-target="profile">
-                <i class="fas fa-shield-halved"></i>
-                <span data-i18n="nav_profile">Профиль</span>
-            </button>
-            <button class="nav-btn" data-target="billing">
-                <i class="fas fa-bolt"></i>
-                <span data-i18n="nav_billing">Тарифы</span>
-            </button>
-            <button class="nav-btn" data-target="instructions">
-                <i class="fas fa-mobile-alt"></i>
-                <span data-i18n="nav_setup">Настройка</span>
-            </button>
-            <button class="nav-btn" data-target="referral">
-                <i class="fas fa-users"></i>
-                <span data-i18n="nav_referral">Рефералка</span>
-            </button>
-        </nav>
-
         <main>
-            <!-- PROFILE TAB -->
+            <!-- ══════════ PROFILE ══════════ -->
             <section id="profile" class="active">
+                <div class="page-head">
+                    <div class="page-head-text">
+                        <h1 class="page-title">
+                            <span class="greet" data-i18n="greeting">Привет,</span>
+                            <span class="greet-name" id="user-full-name">Loading...</span>
+                        </h1>
+                        <p class="page-sub">@<span id="username-display">...</span> · ID <span id="telegram-id-display">...</span></p>
+                    </div>
+                    <div class="head-pill head-icon"><i class="fas fa-shield-halved"></i></div>
+                </div>
+
+                <div id="renew-container" class="renew-banner" style="display:none;">
+                    <div class="renew-banner-txt">
+                        <i class="fas fa-triangle-exclamation"></i>
+                        <span data-i18n="renew_hint">Подписка скоро закончится</span>
+                    </div>
+                    <button class="btn btn-primary nav-btn-proxy" data-target-tab="billing">
+                        <span data-i18n="renew_btn">Продлить подписку</span>
+                    </button>
+                </div>
+
+                <!-- STATUS / USAGE CARD -->
                 <div class="status-hero-card" id="status-hero">
-                    <div class="status-hero-bg"></div>
                     <div class="status-hero-content">
-                        <div class="status-hero-top">
-                            <div>
+                        <div class="status-grid">
+                            <div class="stat-block">
                                 <div class="label-tag" data-i18n="status_label">Статус</div>
                                 <div id="status-indicator" class="status-pill status-inactive" data-i18n="loading">Загрузка</div>
                             </div>
-                            <div style="text-align:right;">
+                            <div class="stat-block stat-right">
                                 <div class="label-tag" data-i18n="balance_label">Баланс</div>
                                 <div class="balance-display" id="user-balance-display">0,00 ₽</div>
                             </div>
                         </div>
-                        <div class="expiry-row">
-                            <i class="fas fa-clock"></i>
-                            <span data-i18n="expiry_label">Истекает:</span>
-                            <span id="expiry-date" class="expiry-val">—</span>
+
+                        <div class="status-meta">
+                            <div class="expiry-row">
+                                <i class="fas fa-clock"></i>
+                                <span data-i18n="expiry_label">Истекает:</span>
+                                <span id="expiry-date" class="expiry-val">—</span>
+                            </div>
+                            <div class="node-chip"><span id="user-status-badge">—</span> DE-2 · reality</div>
                         </div>
+
                         <div id="days-progress-wrap" style="display:none;">
                             <div class="days-bar-bg"><div class="days-bar-fill" id="days-bar-fill"></div></div>
                             <div class="days-bar-label"><span id="days-left-label"></span></div>
@@ -108,40 +99,49 @@
                     </div>
                 </div>
 
-                <div id="renew-container" style="display:none; margin-bottom: 16px;">
-                    <button class="btn btn-renew nav-btn-proxy" data-target-tab="billing">
-                        <i class="fas fa-sync-alt"></i> <span data-i18n="renew_btn">Продлить подписку</span>
-                    </button>
-                </div>
-
+                <!-- KEY CARD (dark tile) -->
                 <div class="card key-card">
                     <div class="key-card-header">
                         <span class="label-tag"><i class="fas fa-key"></i> <span data-i18n="key_label">Ваш ключ</span></span>
-                        <div class="key-actions">
-                            <button class="icon-btn" id="toggle-qr-btn" title="QR-код">
-                                <i class="fas fa-qrcode"></i>
-                            </button>
-                            <button class="icon-btn" id="copy-vless-btn" title="Копировать">
-                                <i class="fas fa-copy"></i>
-                            </button>
-                        </div>
                     </div>
                     <div class="vless-link-box" id="vless-link-display" data-i18n="loading_key">Загрузка ключа...</div>
-
                     <div id="qr-code-display" style="display:none; text-align:center; margin-top:16px;">
                         <div id="qr-code-placeholder"></div>
-                        <p style="margin-top:8px; font-size:0.78em; opacity:0.6;" data-i18n="qr_note">Сканируйте в приложении</p>
+                        <p class="qr-note" data-i18n="qr_note">Сканируйте в приложении</p>
                     </div>
                 </div>
 
-                <div class="card trial-card" id="trial-card-status" style="text-align:center;">Загрузка...</div>
+                <!-- 2×2 QUICK TILES -->
+                <div class="tile-grid">
+                    <button class="tile" id="copy-vless-btn">
+                        <span class="tile-icon"><i class="fas fa-copy"></i></span>
+                        <span class="tile-label" data-i18n="tile_copy">Копировать</span>
+                    </button>
+                    <button class="tile tile-dark" id="toggle-qr-btn">
+                        <span class="tile-icon"><i class="fas fa-qrcode"></i></span>
+                        <span class="tile-label" data-i18n="tile_qr">QR-код</span>
+                    </button>
+                    <button class="tile tile-dark nav-btn-proxy" data-target-tab="billing">
+                        <span class="tile-icon"><i class="fas fa-bolt"></i></span>
+                        <span class="tile-label" data-i18n="tile_renew">Продлить</span>
+                    </button>
+                    <button class="tile nav-btn-proxy" data-target-tab="referral">
+                        <span class="tile-icon"><i class="fas fa-users"></i></span>
+                        <span class="tile-label" data-i18n="tile_invite">Пригласить</span>
+                    </button>
+                </div>
+
+                <div class="card trial-card" id="trial-card-status">Загрузка...</div>
             </section>
 
-            <!-- BILLING TAB -->
+            <!-- ══════════ BILLING ══════════ -->
             <section id="billing">
-                <div class="billing-header">
-                    <h2 class="section-title"><i class="fas fa-bolt"></i> <span data-i18n="title_tariffs">Тарифы</span></h2>
-                    <p class="billing-subtitle" data-i18n="billing_subtitle">Выберите план — оплата через Telegram Stars ⭐</p>
+                <div class="page-head">
+                    <div class="page-head-text">
+                        <h1 class="page-title" data-i18n="title_tariffs">Тарифы</h1>
+                        <p class="page-sub" data-i18n="tariffs_sub">Оплата через Telegram Stars ⭐</p>
+                    </div>
+                    <div class="head-pill head-icon"><i class="fas fa-bolt"></i></div>
                 </div>
 
                 <div class="tariff-list" id="tariff-grid"></div>
@@ -160,9 +160,15 @@
                 </div>
             </section>
 
-            <!-- REFERRAL TAB -->
+            <!-- ══════════ REFERRAL ══════════ -->
             <section id="referral">
-                <h2 class="section-title"><i class="fas fa-users"></i> <span data-i18n="title_referral">Рефералка</span></h2>
+                <div class="page-head">
+                    <div class="page-head-text">
+                        <h1 class="page-title" data-i18n="title_referral">Рефералка</h1>
+                        <p class="page-sub" data-i18n="ref_sub">Приглашай — получай дни</p>
+                    </div>
+                    <div class="head-pill head-icon"><i class="fas fa-users"></i></div>
+                </div>
 
                 <div class="ref-hero-card">
                     <div class="ref-stats">
@@ -186,9 +192,15 @@
                 </div>
             </section>
 
-            <!-- SETUP TAB -->
+            <!-- ══════════ SETUP ══════════ -->
             <section id="instructions">
-                <h2 class="section-title"><i class="fas fa-mobile-alt"></i> <span data-i18n="title_setup">Настройка</span></h2>
+                <div class="page-head">
+                    <div class="page-head-text">
+                        <h1 class="page-title" data-i18n="title_setup">Настройка</h1>
+                        <p class="page-sub" data-i18n="setup_sub">Установка за пару минут</p>
+                    </div>
+                    <div class="head-pill head-icon"><i class="fas fa-mobile-alt"></i></div>
+                </div>
 
                 <h3 class="section-title-h3">
                     <i class="fas fa-download"></i> <span data-i18n="subtitle_download">Скачать приложение</span>
@@ -202,6 +214,16 @@
             </section>
         </main>
     </div>
+
+    <!-- BOTTOM NAV -->
+    <nav class="bottom-nav">
+        <button class="nav-btn active" data-target="profile" aria-label="Профиль"><i class="fas fa-shield-halved"></i></button>
+        <button class="nav-btn" data-target="billing" aria-label="Тарифы"><i class="fas fa-bolt"></i></button>
+        <button class="nav-btn" data-target="instructions" aria-label="Настройка"><i class="fas fa-mobile-alt"></i></button>
+        <button class="nav-btn" data-target="referral" aria-label="Рефералка"><i class="fas fa-users"></i></button>
+    </nav>
+
+    <div class="version-tag">v4.0</div>
 
     <!-- PAYMENT MODAL -->
     <div id="payment-modal">
