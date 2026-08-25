@@ -521,6 +521,8 @@ window.startSubscriptionListener = async function () {
     const trialCard     = document.getElementById('trial-card-status');
     const renewContainer= document.getElementById('renew-container');
     const qrBtn         = document.getElementById('toggle-qr-btn');
+    const qrDisplay      = document.getElementById('qr-code-display');
+    const qrPlaceholder  = document.getElementById('qr-code-placeholder');
     const statusBadge   = document.getElementById('user-status-badge');
     const progressWrap  = document.getElementById('days-progress-wrap');
     const daysBarFill   = document.getElementById('days-bar-fill');
@@ -555,7 +557,8 @@ window.startSubscriptionListener = async function () {
             vlessDisplay.innerHTML = `<span class="key-placeholder">${t.key_inactive}</span>`;
             expiryEl.textContent = '—';
             progressWrap.style.display = 'none';
-            if (qrBtn) qrBtn.disabled = true;
+            qrDisplay.style.display = 'none';
+            if (qrBtn) { qrBtn.disabled = true; qrBtn.classList.remove('active-icon-btn'); }
         } else if (isActive) {
             const date = new Date(expiryTime);
             const formatted = date.toLocaleDateString(currentLang, { year: 'numeric', month: 'long', day: 'numeric' });
@@ -572,6 +575,19 @@ window.startSubscriptionListener = async function () {
 
             expiryEl.textContent = formatted;
             vlessDisplay.innerHTML = `<span class="key-label">${t.key_active}</span> ${data.vless_key}`;
+
+            // QR сразу видно рядом с ключом, без лишнего тапа по кнопке —
+            // кнопка "QR-код" остаётся, просто теперь для скрытия/повторного показа.
+            if (window.QRCode && qrPlaceholder) {
+                qrPlaceholder.innerHTML = '';
+                new QRCode(qrPlaceholder, {
+                    text: data.vless_key, width: 200, height: 200,
+                    colorDark: '#0b0f10', colorLight: '#ffffff',
+                    correctLevel: QRCode.CorrectLevel.M,
+                });
+                qrDisplay.style.display = 'block';
+                if (qrBtn) qrBtn.classList.add('active-icon-btn');
+            }
 
             // Progress bar
             const pct = Math.min(100, Math.round((daysLeft / totalDays) * 100));
