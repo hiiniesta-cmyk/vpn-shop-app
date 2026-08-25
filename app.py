@@ -161,6 +161,25 @@ def user_to_dict(row):
     return d
 
 
+def get_primary_subscription(db, user_id: str) -> dict | None:
+    """
+    Фронт показывает ОДИН ключ в карточке (дизайн на это рассчитан), а
+    подписок у юзера теперь может быть несколько параллельно. Берём ту,
+    что истекает позже всех — она и есть "текущая" для этой карточки.
+    Заодно гасим статус у всего, что уже истекло, чтобы дата была верной.
+    """
+    now = int(time.time())
+    db.execute(
+        "UPDATE subscriptions SET status='expired', updated_at=? WHERE user_id=? AND status='active' AND expires_at<?",
+        (now, user_id, now)
+    )
+    row = db.execute(
+        "SELECT * FROM subscriptions WHERE user_id=? AND status='active' ORDER BY expires_at DESC LIMIT 1",
+        (user_id,)
+    ).fetchone()
+    return dict(row) if row else None
+
+
 def seed_default_tariffs(db):
     """INSERT OR IGNORE — безопасно звать при каждом старте, не перетирает
     то, что админ уже поправил через /api/admin/tariffs."""
@@ -416,7 +435,17 @@ def get_user(user_id):
         )
         db.commit()
         row = db.execute("SELECT * FROM users WHERE user_id=?", (user_id,)).fetchone()
-    return jsonify(user_to_dict(row))
+
+    user = user_to_dict(row)
+    # vless_key/subscription_expiry в таблице users больше не обновляются
+    # (см. subscriptions) — подставляем актуальные значения поверх, чтобы
+    # фронт (main.js читает именно эти два поля) не показывал устаревший
+    # ключ/дату после оплаты.
+    primary_sub = get_primary_subscription(db, user_id)
+    db.commit()
+    user["vless_key"] = primary_sub["vless_key"] if primary_sub else None
+    user["subscription_expiry"] = primary_sub["expires_at"] if primary_sub else 0
+    return jsonify(user)
 
 
 @app.route("/api/user/<user_id>", methods=["POST"])
