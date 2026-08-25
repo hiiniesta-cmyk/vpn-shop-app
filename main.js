@@ -109,6 +109,7 @@ window.addEventListener('load', () => {
     document.getElementById('username-display').textContent = userUsername;
 
     renderTariffs();
+    refreshTariffsFromServer();   // подтянуть актуальные цены с бэка, не блокируя отрисовку
     renderDownloadButtons();
     renderInstructionButtons();
     generateReferralLink();
@@ -200,10 +201,11 @@ window.addEventListener('click', (e) => {
     };
 
     if (btn.classList.contains('tariff-btn-delegate')) {
+        const tariffId = btn.dataset.tariffId;
         const months = parseInt(btn.dataset.months);
         const price  = parseFloat(btn.dataset.price);
         const stars  = parseInt(btn.dataset.stars);
-        showPaymentModal(months, price, stars);
+        showPaymentModal(tariffId, months, price, stars);
     } else if (btn.id === 'start-trial-btn') {
         lockAction(startTrial);
     } else if (btn.id === 'copy-vless-btn') {
@@ -230,7 +232,7 @@ document.addEventListener('click', (e) => {
 // --- Stars Payment ---
 async function handleStarsPayment() {
     if (!currentModalTariff) return;
-    const { months, stars } = currentModalTariff;
+    const { tariffId } = currentModalTariff;
 
     if (telegramId === 'DEV_USER') {
         showToast('Откройте в Telegram для оплаты Stars', 'error');
@@ -238,8 +240,9 @@ async function handleStarsPayment() {
     }
 
     // Telegram Stars Invoice via Bot API (через наш REST-клиент)
+    // Цена/звёзды больше не отправляются с фронта — бэк сам берёт их по tariffId
     try {
-        const data = await api.createStarsInvoice({ userId, telegramId, months, stars });
+        const data = await api.createStarsInvoice({ userId, telegramId, tariffId });
 
         if (data.invoice_link) {
             // Open Telegram payment directly
@@ -314,9 +317,9 @@ function closeModal() {
     setTimeout(() => { modal.style.display = 'none'; }, 300);
 }
 
-window.showPaymentModal = (months, price, stars) => {
+window.showPaymentModal = (tariffId, months, price, stars) => {
     if (telegramId === 'DEV_USER') return showToast('Откройте в Telegram', 'error');
-    currentModalTariff = { months, price, stars };
+    currentModalTariff = { tariffId, months, price, stars };
 
     const comment = `Pay_${months}m_${telegramId}`;
     const yooUrl = `https://yoomoney.ru/quickpay/confirm.xml?receiver=${YOOMONEY_RECIPIENT_ID}&quickpay-form=shop&targets=PLUSVPN+${months}m&sum=${price.toFixed(2)}&comment=${encodeURIComponent(comment)}&paymentType=AC`;
@@ -414,12 +417,41 @@ window.generateReferralLink = () => {
     document.getElementById('referral-link-display').textContent = link;
 };
 
+// Тарифы с бэка (GET /api/tariffs) — источник правды по ценам, чтобы админ мог
+// менять их без деплоя фронта. До первого успешного запроса используем
+// локальный TARIFFS из static.js как фолбэк (не блокируем отрисовку).
+let liveTariffs = null;
+
+async function refreshTariffsFromServer() {
+    try {
+        const apiTariffs = await api.getTariffs();
+        // features/иконки бэк не хранит (это оформление) — берём их из
+        // локального static.js по id, если не нашли — дефолтный набор.
+        liveTariffs = apiTariffs.map(t => {
+            const local = TARIFFS.find(x => x.id === t.id);
+            return {
+                id: t.id,
+                months: t.months,
+                price: t.price,
+                stars: t.stars,
+                badge: t.badge,
+                discountPct: t.discount_pct,
+                features: local ? local.features : ['feat_unlimited', 'feat_vless', 'feat_support'],
+            };
+        });
+        renderTariffs();
+    } catch (e) {
+        console.warn('Не удалось получить тарифы с сервера, показываю локальные цены', e);
+    }
+}
+
 function renderTariffs() {
     const t = TRANSLATIONS[currentLang];
     const grid = document.getElementById('tariff-grid');
-    const basePrice1m = TARIFFS[0].price;
+    const tariffs = liveTariffs || TARIFFS;
+    const basePrice1m = tariffs[0].price;
 
-    grid.innerHTML = TARIFFS.map((tariff) => {
+    grid.innerHTML = tariffs.map((tariff) => {
         const mLabel = tariff.months === 1 ? t.month_1 : t.month_many;
         const pricePerMonth = (tariff.price / tariff.months).toFixed(0);
         const badgeHtml = tariff.badge
@@ -449,6 +481,7 @@ function renderTariffs() {
                 ${[...tariff.features.map(k => t[k] || k), ...(tariff.discountPct > 0 ? [`${tariff.discountPct}% ${t.off}`] : [])].map(f => `<li><i class="fas fa-check"></i> ${f}</li>`).join('')}
             </ul>
             <button class="btn btn-tariff tariff-btn-delegate"
+                data-tariff-id="${tariff.id}"
                 data-months="${tariff.months}"
                 data-price="${tariff.price}"
                 data-stars="${tariff.stars}">
