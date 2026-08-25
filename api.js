@@ -99,11 +99,29 @@ class PlusVpnAPI {
     });
   }
 
-  /** POST /api/create_stars_invoice — создать инвойс Telegram Stars */
-  createStarsInvoice({ userId, telegramId, months, stars }) {
+  /** POST /api/create_stars_invoice — создать инвойс Telegram Stars (цена берётся на бэке по tariff_id) */
+  createStarsInvoice({ userId, telegramId, tariffId }) {
     return this.request('/create_stars_invoice', {
       method: 'POST',
-      body: { userId, telegramId, months, stars },
+      body: { userId, telegramId, tariff_id: tariffId },
+    });
+  }
+
+  /** GET /api/tariffs — тарифы и цены (единственный источник правды, не хардкодить на фронте) */
+  getTariffs() {
+    return this.request('/tariffs');
+  }
+
+  /** GET /api/user/<id>/subscriptions — список всех подписок пользователя (несколько параллельных) */
+  getSubscriptions(userId) {
+    return this.request(`/user/${encodeURIComponent(userId)}/subscriptions`);
+  }
+
+  /** POST /api/subscribe_balance — оплатить тариф с внутреннего баланса */
+  subscribeBalance({ userId, tariffId }) {
+    return this.request('/subscribe_balance', {
+      method: 'POST',
+      body: { userId, tariff_id: tariffId },
     });
   }
 
@@ -123,10 +141,10 @@ class PlusVpnAPI {
   adminStats() {
     return this.request('/admin/stats', { admin: true });
   }
-  adminSetKey({ user_id, vless_key = null, months = 1 }) {
+  adminSetKey({ user_id, tariff_id = null, months = null }) {
     return this.request('/admin/set_key', {
       method: 'POST', admin: true,
-      body: { user_id, vless_key, months },
+      body: { user_id, tariff_id, months },
     });
   }
   adminAddKeysToPool(keys) {
