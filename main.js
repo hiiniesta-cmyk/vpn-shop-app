@@ -21,7 +21,7 @@ const DEFAULT_FEATURES = ['feat_unlimited', 'feat_vless', 'feat_support'];
 let tg = null, tgUser = null, tgInitData = '';
 let currentLang  = localStorage.getItem('lang') || 'ru';
 let currentTheme = localStorage.getItem('plusvpn_theme') || 'light';
-let API_BASE     = 'http://127.0.0.1:4000';
+let API_BASE     = localStorage.getItem('plusvpn_api_base') || API_BASE_DEF;;
 let api = new PlusVpnAPI({ baseUrl: API_BASE });
 
 let isProcessing = false;       // антиспам обычных кнопок
