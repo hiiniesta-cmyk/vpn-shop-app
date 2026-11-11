@@ -1,763 +1,373 @@
-// ═══════════════════════════════════════════════════════════════
-//  PLUSVPN Mini App — фронт под бэкенд tg-vpn-bot (JWT + кошелёк + инвойсы)
-//
-//  Модель оплаты бэкенда:  инвойс = ПОПОЛНЕНИЕ КОШЕЛЬКА (Stars / ЮMoney);
-//  подписка покупается с кошелька: POST /subscriptions → POST /subscriptions/{id}/activate.
-//  Поэтому «Купить»: хватает баланса → покупаем сразу; не хватает → пополняем на разницу,
-//  ждём статус инвойса «paid» и докупаем автоматически.
-// ═══════════════════════════════════════════════════════════════
-
-// ── Настройки (всё, что может понадобиться подправить, — здесь) ─────
-const BOT_USERNAME   = 'PlusVpnBot';
-const API_BASE_DEF   = '/api';                 // nginx отрезает /api и проксирует на бэкенд
-const POLL_MS        = 8000;
-const TRIAL_DAYS_FALLBACK = 3;
-const TRIAL_PERIOD_TYPE   = 'custom';          // период тестовой подписки (см. startTrial)
-const PAID_STATUSES = ['paid'];                                   // кошелёк пополнен
-const DEAD_STATUSES = ['rejected', 'cancelled', 'expired', 'refunded'];
-const DEFAULT_FEATURES = ['feat_unlimited', 'feat_vless', 'feat_support'];
-
-// ── Состояние ───────────────────────────────────────────────────
-let tg = null, tgUser = null, tgInitData = '';
-let currentLang  = localStorage.getItem('lang') || 'ru';
-let currentTheme = localStorage.getItem('plusvpn_theme') || 'light';
-let API_BASE     = localStorage.getItem('plusvpn_api_base') || API_BASE_DEF;
-let api = new PlusVpnAPI({ baseUrl: API_BASE });
-
-let isProcessing = false;       // антиспам обычных кнопок
-let payBusy = false;            // идёт создание инвойса / покупка
-let currentVlessKey = '';       // ссылка подписки (имя оставлено для совместимости)
-let currentModalTariff = null;
-
-const S = {
-    user: null, wallet: 0, subs: [], sub: null,
-    trial: 'unknown',           // 'available' | 'used' | 'unknown'
-    trialBonus: null,
-    prices: null, appLinks: null,
-    authOk: false,
+// --- Translations ---
+const TRANSLATIONS = {
+    ru: {
+        tagline: "Ваша приватность — наш приоритет",
+        nav_profile: "Профиль", nav_billing: "Тарифы", nav_setup: "Настройка", nav_referral: "Рефералка",
+        title_status: "Ваш Статус", balance_label: "Баланс:", status_label: "Статус:",
+        expiry_label: "Истекает:", loading: "Загрузка", loading_key: "Ключ появится после активации", copy_btn: "Копировать",
+        title_trial: "Пробный Период", title_tariffs: "Тарифы",
+        billing_subtitle: "Выберите план — оплата через Telegram Stars ⭐ или ЮMoney",
+        pm_title: "Способы оплаты",
+        payment_warning: "Баланс пополняется через Stars или ЮMoney, затем подписка покупается с баланса автоматически.",
+        title_referral: "Реферальная Программа", invited_text: "Приглашено", bonus_days_label: "Бонус дней",
+        referral_desc: "Отправь ссылку другу. Когда он купит подписку — вы ОБА получите +10 дней бонусом!",
+        share_ref_btn: "Поделиться ссылкой",
+        title_setup: "Подключение", subtitle_download: "Скачать приложение", subtitle_instructions: "Инструкции",
+        modal_title: "Оплата подписки",
+        modal_warning: "Баланс пополнится на нужную сумму, после оплаты подписка активируется автоматически.",
+        modal_pay_btn: "Оплатить ЮMoney", pay_stars_btn: "Оплатить Stars", modal_close_btn: "Закрыть",
+        status_active: "Активна", status_inactive: "Неактивна", status_expired: "Истекла",
+        trial_btn: "Активировать 3 дня бесплатно", trial_used: "Пробный период уже использован",
+        month_1: "мес.", month_few: "мес.", month_many: "мес.",
+        key_label: "Ваш ключ", key_active: "КЛЮЧ:", key_inactive: "Ключ появится после активации",
+        renew_btn: "Продлить подписку",
+        greeting: "Привет,", profile_sub: "Ваш VPN сегодня", renew_hint: "Подписка скоро закончится",
+        tile_copy: "Копировать", tile_qr: "QR-код", tile_renew: "Продлить", tile_invite: "Пригласить",
+        setup_sub: "Установка за пару минут", ref_sub: "Приглашай — получай дни", tariffs_sub: "Оплата через Telegram Stars ⭐",
+        select_btn: "Выбрать", per_month: "₽/мес", off: "скидка",
+        feat_unlimited: "Безлимитный трафик", feat_vless: "VLESS протокол", feat_support: "Поддержка 24/7", feat_priority: "Приоритетная поддержка",
+        processing: "Обработка...",
+        copied: "Скопировано!", link_copied: "Ссылка скопирована!",
+        trial_success: "Пробный период активирован!",
+        qr_btn: "QR-код", qr_title: "Сканируйте ключ", qr_note: "Используйте этот код в приложении.",
+        save: "Популярный", best: "Лучшая цена", discount: "Скидка",
+        days_left: "Осталось дней:",
+        stars_paid_success: "Оплата Stars прошла! Ключ выдаётся...",
+        stars_paid_error: "Ошибка оплаты Stars. Попробуйте снова.",
+        autorenew_label: "Автопродление", autorenew_on: "Автопродление включено", autorenew_off: "Автопродление выключено",
+        promo_title: "Промокод", promo_btn: "Применить", promo_ph: "PROMO",
+        promo_ok: "Промокод применён!", promo_deferred: "Промокод сохранён — применится к следующей подписке",
+        promo_na: "Промокод недоступен", promo_short: "Введите промокод (от 4 символов)",
+        promo_choose: "Несколько активных подписок — выберите одну", promo_retry: "Повторите через пару секунд",
+        days_short: "дн.",
+        buy_wallet_btn: "Купить с баланса", row_term: "Срок", row_price: "Цена", row_balance: "На балансе",
+        row_topup: "Нужно пополнить", row_fee: "Комиссия ЮMoney",
+        tariffs_loading: "Загружаем тарифы…", topup_too_big: "Сумма доплаты слишком большая — пополните баланс частями",
+        topup_ok: "Баланс пополнен!", bought_ok: "Подписка активирована!", insufficient: "Недостаточно средств на балансе",
+        yoo_wait: "После оплаты вернитесь в приложение — подписка активируется автоматически",
+        trial_na: "Пробный период недоступен", auth_needed: "Нет авторизации — откройте приложение через бота"
+    },
+    en: {
+        tagline: "Your privacy is our priority",
+        nav_profile: "Profile", nav_billing: "Plans", nav_setup: "Setup", nav_referral: "Referral",
+        title_status: "Your Status", balance_label: "Balance:", status_label: "Status:",
+        expiry_label: "Expires:", loading: "Loading", loading_key: "Key appears after activation", copy_btn: "Copy",
+        title_trial: "Trial Period", title_tariffs: "Plans",
+        billing_subtitle: "Choose a plan — pay via Telegram Stars ⭐ or YooMoney",
+        pm_title: "Payment methods",
+        payment_warning: "Top up your balance with Stars or YooMoney — the subscription is then bought from the balance automatically.",
+        title_referral: "Referral Program", invited_text: "Invited", bonus_days_label: "Bonus days",
+        referral_desc: "Invite a friend. When they subscribe — you BOTH get +10 bonus days!",
+        share_ref_btn: "Share link",
+        title_setup: "Connection", subtitle_download: "Download App", subtitle_instructions: "Instructions",
+        modal_title: "Subscription Payment",
+        modal_warning: "Your balance will be topped up by the needed amount; the subscription activates automatically after payment.",
+        modal_pay_btn: "Pay via YooMoney", pay_stars_btn: "Pay with Stars", modal_close_btn: "Close",
+        status_active: "Active", status_inactive: "Inactive", status_expired: "Expired",
+        trial_btn: "Activate 3 free days", trial_used: "Trial already used",
+        month_1: "mo.", month_few: "mo.", month_many: "mo.",
+        key_label: "Your key", key_active: "KEY:", key_inactive: "Key appears after activation",
+        renew_btn: "Renew Subscription",
+        greeting: "Hi,", profile_sub: "Your VPN today", renew_hint: "Subscription ending soon",
+        tile_copy: "Copy", tile_qr: "QR code", tile_renew: "Renew", tile_invite: "Invite",
+        setup_sub: "Set up in a couple minutes", ref_sub: "Invite — earn days", tariffs_sub: "Pay via Telegram Stars ⭐",
+        select_btn: "Choose", per_month: "₽/mo", off: "off",
+        feat_unlimited: "Unlimited traffic", feat_vless: "VLESS protocol", feat_support: "24/7 support", feat_priority: "Priority support",
+        processing: "Processing...",
+        copied: "Copied!", link_copied: "Link copied!",
+        trial_success: "Trial activated!",
+        qr_btn: "QR Code", qr_title: "Scan the Key", qr_note: "Use this code in the app for setup.",
+        save: "Popular", best: "Best price", discount: "Discount",
+        days_left: "Days left:",
+        stars_paid_success: "Stars payment successful! Getting your key...",
+        stars_paid_error: "Stars payment failed. Please try again.",
+        autorenew_label: "Auto-renew", autorenew_on: "Auto-renew enabled", autorenew_off: "Auto-renew disabled",
+        promo_title: "Promo code", promo_btn: "Apply", promo_ph: "PROMO",
+        promo_ok: "Promo code applied!", promo_deferred: "Promo code saved — it will apply to your next subscription",
+        promo_na: "Promo code is not available", promo_short: "Enter a promo code (4+ characters)",
+        promo_choose: "Several active subscriptions — choose one", promo_retry: "Please retry in a few seconds",
+        days_short: "d.",
+        buy_wallet_btn: "Buy from balance", row_term: "Term", row_price: "Price", row_balance: "Balance",
+        row_topup: "Top-up needed", row_fee: "YooMoney fee",
+        tariffs_loading: "Loading plans…", topup_too_big: "The top-up amount is too large — top up in several steps",
+        topup_ok: "Balance topped up!", bought_ok: "Subscription activated!", insufficient: "Insufficient balance",
+        yoo_wait: "After paying, return to the app — your subscription activates automatically",
+        trial_na: "Trial is not available", auth_needed: "Not authorized — open the app via the bot"
+    }
 };
 
-const DEBUG = /[?&]debug=1/.test(location.search) || localStorage.getItem('plusvpn_debug') === '1';
-const dbg = (e) => (DEBUG && e ? `\n[${e.status ?? '?'}] ${e.message}` : '');
-
-const t = () => TRANSLATIONS[currentLang];
-const money = (n) => `${Number(n || 0).toFixed(2)} ₽`;
-const round2 = (n) => Math.round(n * 100) / 100;
-
-// ── Инициализация ───────────────────────────────────────────────
-window.addEventListener('load', async () => {
-    if (window.Telegram?.WebApp) {
-        tg = window.Telegram.WebApp;
-        tg.ready();
-        tg.expand();
-        tgInitData = tg.initData || '';
-        tgUser = tg.initDataUnsafe?.user || null;
+// --- Tariffs with Stars pricing ---
+// 1 Star ≈ 0.013 USD ≈ ~1.3 RUB (approximate)
+// Adjust STARS_PER_MONTH to your real rate
+const TARIFFS = [
+    {
+        id: 'month_1',
+        months: 1,
+        price: 103.10,
+        stars: 80,
+        badge: null,
+        discountPct: 0,
+        features: ['feat_unlimited', 'feat_vless', 'feat_support']
+    },
+    {
+        id: 'month_3',
+        months: 3,
+        price: 279.00,
+        stars: 215,
+        badge: 'save',        // Popular
+        discountPct: 10,
+        features: ['feat_unlimited', 'feat_vless', 'feat_support']
+    },
+    {
+        id: 'month_6',
+        months: 6,
+        price: 495.00,
+        stars: 380,
+        badge: null,
+        discountPct: 20,
+        features: ['feat_unlimited', 'feat_vless', 'feat_support']
+    },
+    {
+        id: 'month_12',
+        months: 12,
+        price: 825.00,
+        stars: 635,
+        badge: 'best',        // Best price
+        discountPct: 33,
+        features: ['feat_unlimited', 'feat_vless', 'feat_support', 'feat_priority']
     }
+];
 
-    applyTheme(currentTheme);
-    updateLanguage(currentLang);
+const DOWNLOAD_LINKS = {
+    android: { name: 'Android', icon: 'fab fa-android', url: 'https://github.com/v2fly/v2rayNG/releases' },
+    ios:     { name: 'iOS (V2RayTun)', icon: 'fab fa-apple', url: 'https://apps.apple.com/app/v2raytun/id6444857502' },
+    windows: { name: 'Windows (Hiddify)', icon: 'fab fa-windows', url: 'https://hiddify.com/download' },
+    mac:     { name: 'macOS', icon: 'fab fa-apple', url: 'https://github.com/v2rayA/v2rayA/releases' },
+};
 
-    api = new PlusVpnAPI({ baseUrl: API_BASE, initData: tgInitData });
-
-    const first = tgUser?.first_name || 'User', last = tgUser?.last_name || '';
-    if (tgUser) {
-        const initials = (first[0] + (last ? last[0] : '')).toUpperCase().trim();
-        if (initials) document.getElementById('user-avatar-placeholder').textContent = initials;
-    }
-    document.getElementById('telegram-id-display').textContent = tgUser?.id || '—';
-    document.getElementById('user-full-name').textContent = `${first} ${last}`.trim();
-    document.getElementById('username-display').textContent = tgUser?.username || 'None';
-    document.querySelector('.ref-stats')?.style.setProperty('display', 'none'); // у API нет статистики рефералов
-
-    renderTariffs();
-    renderDownloadButtons();
-    renderInstructionButtons();
-    switchTab('profile');
-    document.querySelector('.container').classList.add('loaded');
-
-    if (!tgInitData) {
-        showToast(currentLang === 'ru' ? 'Откройте приложение через Telegram' : 'Please open the app in Telegram', 'error', 6000);
-        return;
-    }
-    await bootstrap();
-});
-
-async function bootstrap() {
-    try {
-        S.user = await api.resolveUser(tgUser?.id);
-        S.authOk = true;
-    } catch (e) {
-        console.error('Auth failed:', e);
-        showToast((currentLang === 'ru'
-            ? 'Ошибка авторизации. Откройте приложение через бота.'
-            : 'Auth error. Please open the app via the bot.') + dbg(e), 'error', DEBUG ? 20000 : 7000);
-        return;
-    }
-    generateReferralLink();
-    loadPrices();
-    loadAppLinks();
-    startPolling();
-}
-
-// ── Загрузка данных ─────────────────────────────────────────────
-async function loadPrices() {
-    try { S.prices = await api.prices(); renderTariffs(); }
-    catch (e) { console.error('prices', e); }
-}
-
-async function loadAppLinks() {
-    try { S.appLinks = await api.appLinks(); renderDownloadButtons(); }
-    catch (e) { console.error('app-links', e); }   // останутся статические DOWNLOAD_LINKS
-}
-
-async function loadState() {
-    const uid = api.userId;
-    const [wallet, subsPage] = await Promise.all([
-        api.getWallet(uid).catch(() => null),
-        api.listSubscriptions(uid, { per_page: 50 }).catch(() => null),
-    ]);
-    if (wallet) S.wallet = Number(wallet.rub) || 0;
-    if (subsPage) {
-        S.subs = (subsPage.items || []).filter(s => s.status !== 'deleted');
-        S.sub = pickSubscription(S.subs);
-    }
-
-    // триал имеет смысл проверять, пока нет ни одной подписки
-    if (subsPage) {
-        if (S.subs.some(s => s.type === 'test_period')) S.trial = 'used';
-        else if (S.subs.length) S.trial = 'used';
-        else {
-            try { S.trialBonus = await api.trialPeriod(uid); S.trial = 'available'; }
-            catch (e) { S.trial = (e.status === 403 || e.status === 404) ? 'used' : 'unknown'; }
+const INSTRUCTION_LINKS = {
+    android: {
+        name: 'Android',
+        icon: 'fab fa-android',
+        html: {
+            ru: `
+            <h4>Настройка для Android (v2rayNG)</h4>
+            <ol>
+                <li>Скопируйте ваш ключ на вкладке «Профиль».</li>
+                <li>Скачайте и установите <b>v2rayNG</b>.</li>
+                <li>Нажмите <b>+</b> → «Импорт из буфера обмена».</li>
+                <img src="https://shinobubest.github.io/web/resources/android/3.png" class="instruction-img" alt="Шаг 3">
+                <img src="https://shinobubest.github.io/web/resources/android/4.png" class="instruction-img" alt="Шаг 4">
+                <li>Нажмите кнопку <b>►</b> внизу для подключения.</li>
+                <img src="https://shinobubest.github.io/web/resources/android/5.png" class="instruction-img" alt="Шаг 5">
+            </ol>`,
+            en: `
+            <h4>Setup for Android (v2rayNG)</h4>
+            <ol>
+                <li>Copy your key on the “Profile” tab.</li>
+                <li>Download and install <b>v2rayNG</b>.</li>
+                <li>Tap <b>+</b> → “Import config from clipboard”.</li>
+                <img src="https://shinobubest.github.io/web/resources/android/3.png" class="instruction-img" alt="Step 3">
+                <img src="https://shinobubest.github.io/web/resources/android/4.png" class="instruction-img" alt="Step 4">
+                <li>Tap the <b>►</b> button at the bottom to connect.</li>
+                <img src="https://shinobubest.github.io/web/resources/android/5.png" class="instruction-img" alt="Step 5">
+            </ol>`
         }
-    }
-    if (!S.prices) loadPrices();
-    if (!S.prices) renderTariffs();
-}
-
-function pickSubscription(items) {
-    if (!items.length) return null;
-    const byExpiry = (a, b) => (parseDate(b.expires_at) || 0) - (parseDate(a.expires_at) || 0);
-    const active = items.filter(s => s.is_active).sort(byExpiry);
-    return active[0] || [...items].sort(byExpiry)[0];
-}
-
-// ── Опрос ───────────────────────────────────────────────────────
-let pollTimer = null, polling = false, pollAgain = false;
-function schedule() {
-    pollTimer = setTimeout(() => { if (document.hidden) schedule(); else refresh(); }, POLL_MS);
-}
-function startPolling() {
-    window.addEventListener('db-update', () => refresh());
-    document.addEventListener('visibilitychange', () => { if (!document.hidden) refresh(); });
-    refresh();
-}
-async function refresh() {
-    if (!S.authOk) return;
-    if (polling) { pollAgain = true; return; }
-    polling = true; clearTimeout(pollTimer);
-    try {
-        await loadState();
-        renderProfile();
-        await checkPending();
-    } catch (e) { console.error('refresh', e); }
-    finally {
-        polling = false;
-        if (pollAgain) { pollAgain = false; refresh(); } else schedule();
-    }
-}
-
-// ── Рендер профиля ──────────────────────────────────────────────
-function setKeyDisplay(el, label, key) {
-    el.textContent = '';
-    const span = document.createElement('span');
-    span.className = 'key-label';
-    span.textContent = label;
-    el.append(span, ' ', key);
-}
-
-function renderProfile() {
-    const tr = t();
-    const indicator = document.getElementById('status-indicator');
-    const vlessDisplay = document.getElementById('vless-link-display');
-    const trialCard = document.getElementById('trial-card-status');
-    const renewContainer = document.getElementById('renew-container');
-    const qrBtn = document.getElementById('toggle-qr-btn');
-    const statusBadge = document.getElementById('user-status-badge');
-    const progressWrap = document.getElementById('days-progress-wrap');
-    const daysBarFill = document.getElementById('days-bar-fill');
-    const daysLeftLabel = document.getElementById('days-left-label');
-    const expiryEl = document.getElementById('expiry-date');
-    const autoRow = document.getElementById('autorenew-row');
-    const autoToggle = document.getElementById('autodebit-toggle');
-
-    document.getElementById('user-balance-display').textContent = money(S.wallet);
-
-    const sub = S.sub;
-    currentVlessKey = sub?.subscription_url || '';
-    const expiryTime = sub ? parseDate(sub.expires_at) : null;
-    const isActive = !!(sub && sub.is_active && expiryTime && expiryTime > Date.now());
-    const daysLeft = isActive ? Math.ceil((expiryTime - Date.now()) / 864e5) : 0;
-
-    renewContainer.style.display = (!isActive || daysLeft < 5) ? 'block' : 'none';
-
-    if (!sub) {
-        indicator.textContent = tr.status_inactive;
-        indicator.className = 'status-pill status-inactive';
-        statusBadge.textContent = '🔴';
-        vlessDisplay.innerHTML = `<span class="key-placeholder">${tr.key_inactive}</span>`;
-        expiryEl.textContent = '—';
-        progressWrap.style.display = 'none';
-        if (qrBtn) qrBtn.disabled = true;
-    } else if (isActive) {
-        const warn = daysLeft < 5 || sub.status === 'expiring';
-        indicator.textContent = `${warn ? '⚠️' : '✓'} ${tr.status_active}`;
-        indicator.className = `status-pill ${warn ? 'status-warning' : 'status-active'}`;
-        statusBadge.textContent = warn ? '⚠️' : '🟢';
-        expiryEl.textContent = new Date(expiryTime).toLocaleDateString(currentLang, { year: 'numeric', month: 'long', day: 'numeric' });
-        setKeyDisplay(vlessDisplay, tr.key_active, currentVlessKey);
-
-        const pct = Math.min(100, Math.round((daysLeft / 30) * 100));
-        progressWrap.style.display = 'block';
-        daysBarFill.style.width = `${pct}%`;
-        daysBarFill.style.background = daysLeft < 5
-            ? 'linear-gradient(90deg, #c25541, #ddb863)'
-            : 'linear-gradient(90deg, #ddb863, #c7a24c)';
-        daysLeftLabel.textContent = `${tr.days_left} ${daysLeft}`;
-        if (qrBtn) qrBtn.disabled = false;
-    } else {
-        indicator.textContent = tr.status_expired;
-        indicator.className = 'status-pill status-inactive';
-        statusBadge.textContent = '🔴';
-        expiryEl.textContent = tr.status_expired;
-        progressWrap.style.display = 'none';
-        if (currentVlessKey) setKeyDisplay(vlessDisplay, tr.key_active, currentVlessKey);
-        else vlessDisplay.innerHTML = `<span class="key-placeholder">${tr.key_inactive}</span>`;
-        if (qrBtn) qrBtn.disabled = !currentVlessKey;
-    }
-
-    // автопродление — только для активной подписки
-    if (autoRow) {
-        autoRow.style.display = isActive ? 'flex' : 'none';
-        if (isActive && autoToggle && document.activeElement !== autoToggle) autoToggle.checked = !!sub.auto_debit;
-    }
-
-    // Триал
-    if (S.trial === 'available') {
-        const days = Math.round(Number(S.trialBonus?.amount)) || TRIAL_DAYS_FALLBACK;
-        trialCard.style.display = '';
-        if (!document.getElementById('start-trial-btn')) {
-            trialCard.innerHTML = `
-                <p class="trial-desc">${tr.title_trial}</p>
-                <button class="btn btn-primary" id="start-trial-btn">
-                    <i class="fas fa-gift"></i> ${tr.trial_btn.replace(/\d+/, days)}
-                </button>`;
+    },
+    ios: {
+        name: 'iOS (V2RayTun)',
+        icon: 'fab fa-apple',
+        html: {
+            ru: `
+            <h4>Настройка для iPhone (V2RayTun)</h4>
+            <ol>
+                <li>Скопируйте ваш ключ на вкладке «Профиль».</li>
+                <li>Скачайте <b>V2RayTun</b> из App Store.</li>
+                <li>Нажмите <b>+</b> в правом верхнем углу → «Добавить из буфера».</li>
+                <img src="https://shinobubest.github.io/web/resources/iphone/3.png" class="instruction-img" alt="Шаг 3">
+                <img src="https://shinobubest.github.io/web/resources/iphone/4.png" class="instruction-img" alt="Шаг 4">
+                <li>Нажмите кнопку подключения в центре.</li>
+                <img src="https://shinobubest.github.io/web/resources/iphone/5.png" class="instruction-img" alt="Шаг 5">
+            </ol>`,
+            en: `
+            <h4>Setup for iPhone (V2RayTun)</h4>
+            <ol>
+                <li>Copy your key on the “Profile” tab.</li>
+                <li>Download <b>V2RayTun</b> from the App Store.</li>
+                <li>Tap <b>+</b> in the top-right corner → “Add from clipboard”.</li>
+                <img src="https://shinobubest.github.io/web/resources/iphone/3.png" class="instruction-img" alt="Step 3">
+                <img src="https://shinobubest.github.io/web/resources/iphone/4.png" class="instruction-img" alt="Step 4">
+                <li>Tap the connect button in the center.</li>
+                <img src="https://shinobubest.github.io/web/resources/iphone/5.png" class="instruction-img" alt="Step 5">
+            </ol>`
         }
-    } else if (S.trial === 'used') {
-        trialCard.style.display = '';
-        trialCard.innerHTML = `<div class="trial-used-msg"><i class="fas fa-check-circle"></i> ${tr.trial_used}</div>`;
-    } else {
-        trialCard.style.display = 'none';
-    }
-}
+    },
+    windows: {
+        name: 'Windows (Hiddify)',
+        icon: 'fab fa-windows',
+        html: {
+            ru: `
+            <h4>Настройка для Windows (Hiddify)</h4>
+            <ol>
+                <li>Скопируйте ваш ключ на вкладке «Профиль».</li>
+                <li>Скачайте и установите <b>Hiddify</b>.</li>
+                <li>Нажмите «Новый профиль» или «+».</li>
+                <img src="https://shinobubest.github.io/web/resources/win/3.png" class="instruction-img" alt="Шаг 3">
+                <li>«Добавить из буфера обмена».</li>
+                <img src="https://shinobubest.github.io/web/resources/win/4.png" class="instruction-img" alt="Шаг 4">
+                <li>Нажмите большую кнопку подключения по центру.</li>
+            </ol>`,
+            en: `
+            <h4>Setup for Windows (Hiddify)</h4>
+            <ol>
+                <li>Copy your key on the “Profile” tab.</li>
+                <li>Download and install <b>Hiddify</b>.</li>
+                <li>Click “New profile” or “+”.</li>
+                <img src="https://shinobubest.github.io/web/resources/win/3.png" class="instruction-img" alt="Step 3">
+                <li>“Add from clipboard”.</li>
+                <img src="https://shinobubest.github.io/web/resources/win/4.png" class="instruction-img" alt="Step 4">
+                <li>Click the big connect button in the center.</li>
+            </ol>`
+        }
+    },
+    androidtv: {
+        name: 'Android TV',
+        icon: 'fas fa-tv',
+        html: {
+            ru: `
+            <h4>Настройка для Android TV</h4>
+            <ol>
+                <li>Скачайте <b>v2rayNG</b> на смартфон и <b>Send Files to TV</b> из Google Play (на TV и смартфон).</li>
+                <li>На смартфоне откройте файловый менеджер, найдите <b>v2rayNG.apk</b> и «Поделиться» → Send Files to TV.</li>
+                <img src="https://shinobubest.github.io/web/resources/atv/2.png" class="instruction-img">
+                <li>На TV откройте Send Files to TV, подтвердите получение файла.</li>
+                <img src="https://shinobubest.github.io/web/resources/atv/3.png" class="instruction-img">
+                <li>Установите APK через файловый менеджер. Откройте v2rayNG.</li>
+                <li>Нажмите «+» → «Импорт из QR-кода» → иконка «Изображение».</li>
+                <img src="https://shinobubest.github.io/web/resources/atv/4.png" class="instruction-img">
+                <img src="https://shinobubest.github.io/web/resources/atv/5.png" class="instruction-img">
+                <img src="https://shinobubest.github.io/web/resources/atv/6.png" class="instruction-img">
+                <li>Выберите QR-код, нажмите «Запуск».</li>
+                <img src="https://shinobubest.github.io/web/resources/atv/7.png" class="instruction-img">
+            </ol>`,
+            en: `
+            <h4>Setup for Android TV</h4>
+            <ol>
+                <li>Install <b>v2rayNG</b> on your phone and <b>Send Files to TV</b> from Google Play (on both the TV and the phone).</li>
+                <li>On your phone open a file manager, find <b>v2rayNG.apk</b> and tap “Share” → Send Files to TV.</li>
+                <img src="https://shinobubest.github.io/web/resources/atv/2.png" class="instruction-img">
+                <li>On the TV open Send Files to TV and confirm receiving the file.</li>
+                <img src="https://shinobubest.github.io/web/resources/atv/3.png" class="instruction-img">
+                <li>Install the APK via the file manager. Open v2rayNG.</li>
+                <li>Tap “+” → “Import config from QR code” → the “Image” icon.</li>
+                <img src="https://shinobubest.github.io/web/resources/atv/4.png" class="instruction-img">
+                <img src="https://shinobubest.github.io/web/resources/atv/5.png" class="instruction-img">
+                <img src="https://shinobubest.github.io/web/resources/atv/6.png" class="instruction-img">
+                <li>Select the QR code and tap “Run”.</li>
+                <img src="https://shinobubest.github.io/web/resources/atv/7.png" class="instruction-img">
+            </ol>`
+        }
+    },
+    faq: {
+        name: 'FAQ',
+        icon: 'fas fa-circle-question',
+        html: {
+            ru: `
+            <h4>Частые вопросы</h4>
 
-// ── Тариф-карточки ──────────────────────────────────────────────
-function tiers() { return (S.prices?.key_prices || []).slice().sort((a, b) => a.months - b.months); }
-
-function renderTariffs() {
-    const tr = t();
-    const grid = document.getElementById('tariff-grid');
-    const list = tiers();
-    if (!list.length) {
-        grid.innerHTML = `<div class="warning-card"><i class="fas fa-spinner fa-spin"></i><span>${tr.tariffs_loading}</span></div>`;
-        return;
-    }
-    const base = list.find(x => x.months === 1);
-
-    grid.innerHTML = list.map((tier) => {
-        const meta = TARIFFS.find(x => x.months === tier.months) || {};
-        const mLabel = tier.months === 1 ? tr.month_1 : tr.month_many;
-        const perMonth = (tier.price / tier.months).toFixed(0);
-        const full = base ? base.price * tier.months : 0;
-        const discountPct = (base && tier.months > 1 && full > tier.price) ? Math.round((1 - tier.price / full) * 100) : 0;
-        const badgeHtml = meta.badge
-            ? `<span class="tariff-badge tariff-badge-${meta.badge}">${meta.badge === 'save' ? tr.save : tr.best}</span>` : '';
-        const discountHtml = discountPct > 0 ? `<span class="tariff-discount">−${discountPct}%</span>` : '';
-        const oldPrice = discountPct > 0 ? `<span class="tariff-old-price">${full.toFixed(0)} ₽</span>` : '';
-        const features = [...(meta.features || DEFAULT_FEATURES).map(k => tr[k] || k),
-                          ...(discountPct > 0 ? [`${discountPct}% ${tr.off}`] : [])];
-
-        return `
-        <div class="tariff-card ${meta.badge ? 'tariff-card-featured' : ''}">
-            ${badgeHtml}
-            <div class="tariff-period">
-                <span class="tariff-months">${tier.months}</span>
-                <span class="tariff-month-label">${mLabel}</span>
+            <div class="faq-item">
+                <div class="faq-q"><i class="fas fa-chevron-right"></i> Что такое VLESS?</div>
+                <div class="faq-a">VLESS — современный протокол VPN с минимальной нагрузкой и высокой скоростью. Устойчив к блокировкам и определению DPI.</div>
             </div>
-            <div class="tariff-price-block">
-                <div class="tariff-oldprice-row">${oldPrice}${discountHtml}</div>
-                <div class="tariff-price">${tier.price.toFixed(0)} <span class="tariff-currency">₽</span></div>
-                <div class="tariff-per-month">${perMonth} ${tr.per_month}</div>
+
+            <div class="faq-item">
+                <div class="faq-q"><i class="fas fa-chevron-right"></i> Я оплатил — когда появится ключ?</div>
+                <div class="faq-a"><b>Stars:</b> ключ выдаётся мгновенно и автоматически.<br><b>ЮMoney:</b> в течение 1–5 минут бот пришлёт ключ в чат. Если прошло больше — напишите в поддержку.</div>
             </div>
-            <ul class="tariff-features">
-                ${features.map(f => `<li><i class="fas fa-check"></i> ${f}</li>`).join('')}
-            </ul>
-            <button class="btn btn-tariff tariff-btn-delegate" data-months="${tier.months}">
-                <i class="fas fa-bolt"></i> ${tr.select_btn}
-            </button>
-        </div>`;
-    }).join('');
-}
 
-// ── Скачивание / инструкции ─────────────────────────────────────
-function iconForName(name) {
-    const n = String(name).toLowerCase();
-    if (n.includes('android')) return 'fab fa-android';
-    if (n.includes('ios') || n.includes('iphone') || n.includes('mac') || n.includes('apple')) return 'fab fa-apple';
-    if (n.includes('win')) return 'fab fa-windows';
-    if (n.includes('linux')) return 'fab fa-linux';
-    return 'fas fa-download';
-}
-
-function renderDownloadButtons() {
-    const items = (S.appLinks && S.appLinks.length)
-        ? S.appLinks.map(l => ({ name: l.name, url: l.url, icon: iconForName(l.name) }))
-        : Object.values(DOWNLOAD_LINKS);
-    document.getElementById('download-grid').innerHTML = items.map(i => `
-        <button class="btn download-btn open-link-delegate" data-url="${encodeURI(i.url)}">
-            <i class="${i.icon}"></i> ${i.name}
-        </button>`).join('');
-}
-
-function renderInstructionButtons() {
-    const container = document.getElementById('instructions-grid');
-    container.innerHTML = Object.keys(INSTRUCTION_LINKS).map(key => {
-        const i = INSTRUCTION_LINKS[key];
-        return `
-        <div class="instruction-wrapper">
-            <button class="btn accordion-btn" data-target="inst-${key}">
-                <span><i class="${i.icon}"></i> ${i.name}</span>
-                <i class="fas fa-chevron-down accordion-icon"></i>
-            </button>
-            <div id="inst-${key}" class="instruction-content">
-                ${(i.html && i.html[currentLang]) || (i.html && i.html.ru) || i.html}
+            <div class="faq-item">
+                <div class="faq-q"><i class="fas fa-chevron-right"></i> Можно ли использовать на нескольких устройствах?</div>
+                <div class="faq-a">Да, ключ работает на нескольких устройствах одновременно. Ограничений нет.</div>
             </div>
-        </div>`;
-    }).join('');
-}
 
-// ── Оплата ──────────────────────────────────────────────────────
-function tierByMonths(months) { return tiers().find(x => x.months === Number(months)); }
+            <div class="faq-item">
+                <div class="faq-q"><i class="fas fa-chevron-right"></i> Какая скорость соединения?</div>
+                <div class="faq-a">Скорость зависит от вашего интернет-провайдера. Наши серверы не ограничивают трафик — ограничением является ваш тариф у провайдера.</div>
+            </div>
 
-/** Stars-пакеты пополнения: stars_prices = { "<сумма в ₽>": <Stars> }. Берём минимальный пакет ≥ нужной суммы. */
-function starsOption(need) {
-    const opts = Object.entries(S.prices?.stars_prices || {})
-        .map(([rub, stars]) => ({ rub: Number(rub), stars: Number(stars) }))
-        .filter(o => o.rub > 0 && o.stars > 0)
-        .sort((a, b) => a.rub - b.rub);
-    return opts.find(o => o.rub >= need) || null;
-}
+            <div class="faq-item">
+                <div class="faq-q"><i class="fas fa-chevron-right"></i> Где расположены серверы?</div>
+                <div class="faq-a">Сервера расположены в странах ЕС. Маршрутизация оптимизирована для пользователей из России.</div>
+            </div>
 
-/** ЮMoney: сумма пополнения в границах [topup_min, topup_max], кратная topup_step. */
-function yooAmount(need) {
-    const p = S.prices || {};
-    const step = Number(p.topup_step) || 1, min = Number(p.topup_min) || 1, max = Number(p.topup_max) || Infinity;
-    const amt = Math.max(min, Math.ceil(round2(need / step)) * step);
-    return amt <= max ? amt : null;
-}
+            <div class="faq-item">
+                <div class="faq-q"><i class="fas fa-chevron-right"></i> Что такое Telegram Stars?</div>
+                <div class="faq-a">Telegram Stars — внутренняя валюта Telegram. Купить можно прямо в Telegram через настройки (Telegram Premium → Stars). Оплата мгновенная без карты.</div>
+            </div>
 
-window.showPaymentModal = (months) => {
-    const tier = tierByMonths(months);
-    if (!tier) return;
-    const tr = t();
-    const need = Math.max(0, round2(tier.price - S.wallet));
-    const stars = need > 0 ? starsOption(need) : null;
-    const yoo = need > 0 ? yooAmount(need) : null;
-    currentModalTariff = { tier, need, stars, yoo };
+            <div class="faq-item">
+                <div class="faq-q"><i class="fas fa-chevron-right"></i> Как работает реферальная программа?</div>
+                <div class="faq-a">Скопируй свою реферальную ссылку и отправь другу. Когда он оплатит любой тариф — вы ОБА получите +10 дней к подписке автоматически.</div>
+            </div>
 
-    const mLabel = tier.months === 1 ? tr.month_1 : tr.month_many;
-    const fee = S.prices?.yoomoney_fee_percent;
-    document.getElementById('modal-tariff-info').innerHTML = `
-        <div class="modal-info-row"><span>${tr.row_term}</span><strong>${tier.months} ${mLabel}</strong></div>
-        <div class="modal-info-row"><span>${tr.row_price}</span><strong>${tier.price.toFixed(0)} ₽</strong></div>
-        <div class="modal-info-row"><span>${tr.row_balance}</span><strong>${money(S.wallet)}</strong></div>
-        ${need > 0 ? `<div class="modal-info-row"><span>${tr.row_topup}</span><strong>${money(need)}</strong></div>` : ''}
-        ${need > 0 && fee && Number(fee) > 0 ? `<div class="modal-info-row"><span>${tr.row_fee}</span><strong>${Number(fee)}%</strong></div>` : ''}
-    `;
+            <div class="faq-item">
+                <div class="faq-q"><i class="fas fa-chevron-right"></i> Что делать если VPN не подключается?</div>
+                <div class="faq-a">1. Убедитесь что подписка активна.<br>2. Проверьте что ключ скопирован полностью.<br>3. Попробуйте переподключиться или пересоздать конфиг.<br>4. Напишите в поддержку боту.</div>
+            </div>
 
-    const starsBtn = document.getElementById('pay-stars-btn');
-    const yooBtn = document.getElementById('go-to-yoomoney-btn');
-    const walletBtn = document.getElementById('buy-wallet-btn');
-    const payBlock = document.getElementById('modal-pay-methods');
-    const warn = document.getElementById('modal-warning-card');
+            <div class="faq-item">
+                <div class="faq-q"><i class="fas fa-chevron-right"></i> Можно ли получить возврат?</div>
+                <div class="faq-a">Возвраты рассматриваются индивидуально в течение 24 часов с момента покупки. Напишите в поддержку через бота.</div>
+            </div>
+        `,
+            en: `
+            <h4>Frequently asked questions</h4>
 
-    if (need === 0) {                                  // хватает баланса
-        payBlock.style.display = 'none'; warn.style.display = 'none';
-        walletBtn.style.display = '';
-    } else {
-        walletBtn.style.display = 'none'; payBlock.style.display = ''; warn.style.display = '';
-        starsBtn.style.display = stars ? '' : 'none';
-        document.getElementById('stars-badge-amount').textContent = stars ? `${stars.stars} ⭐` : '';
-        yooBtn.style.display = yoo ? '' : 'none';
-        yooBtn.querySelector('span[data-i18n]').textContent = `${tr.modal_pay_btn} · ${yoo ?? ''} ₽`;
-        if (!stars && !yoo) showToast(tr.topup_too_big, 'error', 5000);
-    }
+            <div class="faq-item">
+                <div class="faq-q"><i class="fas fa-chevron-right"></i> What is VLESS?</div>
+                <div class="faq-a">VLESS is a modern VPN protocol with minimal overhead and high speed. It resists blocking and DPI detection.</div>
+            </div>
 
-    const modal = document.getElementById('payment-modal');
-    modal.style.display = 'flex';
-    requestAnimationFrame(() => modal.classList.add('open'));
-};
+            <div class="faq-item">
+                <div class="faq-q"><i class="fas fa-chevron-right"></i> I’ve paid — when will I get the key?</div>
+                <div class="faq-a"><b>Stars:</b> the key is issued instantly and automatically.<br><b>YooMoney:</b> the bot sends the key to the chat within 1–5 minutes. If it takes longer — contact support.</div>
+            </div>
 
-function closeModal() {
-    const modal = document.getElementById('payment-modal');
-    modal.classList.remove('open');
-    setTimeout(() => { modal.style.display = 'none'; }, 300);
-}
+            <div class="faq-item">
+                <div class="faq-q"><i class="fas fa-chevron-right"></i> Can I use it on several devices?</div>
+                <div class="faq-a">Yes, the key works on several devices at the same time. There are no limits.</div>
+            </div>
 
-async function withPayLock(btn, fn) {
-    if (payBusy) return;
-    payBusy = true;
-    const orig = btn.innerHTML;
-    btn.classList.add('disabled');
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
-    try { await fn(); }
-    catch (err) {
-        console.error(err);
-        showToast((err.message || t().stars_paid_error) + dbg(err), 'error', DEBUG ? 15000 : 5000);
-    } finally {
-        payBusy = false;
-        btn.classList.remove('disabled');
-        btn.innerHTML = orig;
-    }
-}
+            <div class="faq-item">
+                <div class="faq-q"><i class="fas fa-chevron-right"></i> What connection speed can I expect?</div>
+                <div class="faq-a">Speed depends on your internet provider. Our servers don’t throttle traffic — the limit is your provider’s plan.</div>
+            </div>
 
-// pending: покупка, ждущая зачисления денег. Переживает закрытие приложения (ЮMoney уводит в браузер).
-const PENDING_KEY = 'plusvpn_pending';
-const readPending = () => { try { return JSON.parse(localStorage.getItem(PENDING_KEY)); } catch { return null; } };
-const writePending = (p) => localStorage.setItem(PENDING_KEY, JSON.stringify(p));
-const clearPending = () => localStorage.removeItem(PENDING_KEY);
+            <div class="faq-item">
+                <div class="faq-q"><i class="fas fa-chevron-right"></i> Where are the servers located?</div>
+                <div class="faq-a">The servers are located in EU countries. Routing is optimized for users from Russia.</div>
+            </div>
 
-let pendingBusy = false;
-async function checkPending() {
-    const p = readPending();
-    if (!p || pendingBusy) return;
-    if (Date.now() - p.ts > 24 * 3600e3) { clearPending(); return; }
-    pendingBusy = true;
-    try {
-        const inv = await api.getInvoice(p.invoiceId);
-        if (PAID_STATUSES.includes(inv.status)) {
-            clearPending();                                   // до покупки: повтор невозможен
-            showToast(t().topup_ok, 'success');
-            await purchase(p.months, { quiet: false });
-        } else if (DEAD_STATUSES.includes(inv.status)) {
-            clearPending();
+            <div class="faq-item">
+                <div class="faq-q"><i class="fas fa-chevron-right"></i> What are Telegram Stars?</div>
+                <div class="faq-a">Telegram Stars are Telegram’s in-app currency. You can buy them right in Telegram via settings (Telegram Premium → Stars). Payment is instant, no card needed.</div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-q"><i class="fas fa-chevron-right"></i> How does the referral program work?</div>
+                <div class="faq-a">Copy your referral link and send it to a friend. When they pay for any plan — you BOTH automatically get +10 days added to your subscription.</div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-q"><i class="fas fa-chevron-right"></i> What if the VPN won’t connect?</div>
+                <div class="faq-a">1. Make sure your subscription is active.<br>2. Check that the key was copied in full.<br>3. Try reconnecting or recreating the config.<br>4. Contact the support bot.</div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-q"><i class="fas fa-chevron-right"></i> Can I get a refund?</div>
+                <div class="faq-a">Refunds are reviewed individually within 24 hours of purchase. Contact support via the bot.</div>
+            </div>
+        `
         }
-    } catch (e) { console.error('pending', e); }
-    finally { pendingBusy = false; }
-}
-
-/** После оплаты Stars статус обновляется не мгновенно — несколько быстрых проверок подряд. */
-function burstCheckPending(times = 15, every = 2000) {
-    let n = 0;
-    const tick = async () => { await checkPending(); if (++n < times && readPending()) setTimeout(tick, every); };
-    tick();
-}
-
-/** Покупка подписки с кошелька: create → activate. */
-async function purchase(months) {
-    const tier = tierByMonths(months);
-    if (!tier) return;
-    try {
-        const sub = await api.createSubscription({ user_id: api.userId, type: 'default', period_type: tier.period_type });
-        try { await api.activateSubscription(sub.id); }
-        catch (e) { if (e.status !== 409) throw e; }          // 409 — уже активна, это нормально
-        showToast(t().bought_ok, 'success');
-    } catch (e) {
-        if (e.status === 402) showToast(t().insufficient, 'error', 5000);
-        else showToast((e.message || t().stars_paid_error) + dbg(e), 'error', 5000);
     }
-    window.dispatchEvent(new Event('db-update'));
-}
-
-async function handleWalletBuy(btn) {
-    if (!currentModalTariff) return;
-    const { tier } = currentModalTariff;
-    await withPayLock(btn, async () => {
-        closeModal();
-        await purchase(tier.months);
-    });
-}
-
-async function handleStarsPayment(btn) {
-    const m = currentModalTariff;
-    if (!m?.stars) return;
-    await withPayLock(btn, async () => {
-        const inv = await api.createInvoice({
-            user_id: api.userId, pay_amount: m.stars.rub, wallet_amount: 0, pay_method: 'stars',
-        });
-        const { invoice_link } = await api.starsLink(inv.id);
-        writePending({ invoiceId: inv.id, months: m.tier.months, ts: Date.now() });
-
-        if (!tg?.openInvoice) { openLink(invoice_link); closeModal(); return; }
-        tg.openInvoice(invoice_link, (status) => {
-            if (status === 'paid') {
-                showToast(t().stars_paid_success, 'success');
-                closeModal();
-                burstCheckPending();
-            } else if (status === 'cancelled') {
-                clearPending();
-                showToast(currentLang === 'ru' ? 'Оплата отменена' : 'Payment cancelled', 'info');
-            } else {
-                clearPending();
-                showToast(t().stars_paid_error, 'error');
-            }
-        });
-    });
-}
-
-async function handleYooMoneyPayment(btn) {
-    const m = currentModalTariff;
-    if (!m?.yoo) return;
-    await withPayLock(btn, async () => {
-        let inv = await api.createInvoice({
-            user_id: api.userId, pay_amount: m.yoo, wallet_amount: 0, pay_method: 'yoomoney',
-        });
-        let url = inv.billing_details?.payment_url;
-        if (!url) { inv = await api.getInvoice(inv.id); url = inv.billing_details?.payment_url; }
-        if (!url) throw new Error(currentLang === 'ru' ? 'Ссылка на оплату не получена' : 'Payment link not received');
-
-        writePending({ invoiceId: inv.id, months: m.tier.months, ts: Date.now() });
-        openLink(url);
-        closeModal();
-        showToast(t().yoo_wait, 'info', 6000);
-    });
-}
-
-// ── Триал ───────────────────────────────────────────────────────
-window.startTrial = async () => {
-    const days = Math.round(Number(S.trialBonus?.amount)) || TRIAL_DAYS_FALLBACK;
-    try {
-        const sub = await api.createSubscription({
-            user_id: api.userId, type: 'test_period', period_type: TRIAL_PERIOD_TYPE, custom_period: days,
-        });
-        try { await api.activateSubscription(sub.id); }
-        catch (e) { if (e.status !== 409) throw e; }
-        showToast(t().trial_success, 'success');
-    } catch (e) {
-        showToast(e.status === 412 ? t().trial_na : ((e.message || t().stars_paid_error) + dbg(e)), 'error', DEBUG ? 15000 : 5000);
-        throw e;
-    } finally {
-        window.dispatchEvent(new Event('db-update'));
-    }
-};
-
-// ── Промокод ────────────────────────────────────────────────────
-async function redeemPromo() {
-    const input = document.getElementById('promo-input');
-    const code = input.value.trim();
-    const tr = t();
-    if (code.length < 4) return showToast(tr.promo_short, 'error');
-    try {
-        // с несколькими активными подписками бэкенд требует явный выбор → всегда передаём текущую
-        const target = S.sub?.is_active ? S.sub.id : null;
-        const r = await api.redeemPromocode(api.userId, code, target);
-        input.value = '';
-        let msg;
-        if (r.deferred) msg = tr.promo_deferred;
-        else if (r.amount_type === 'money') msg = `${tr.promo_ok} +${r.amount} ₽`;
-        else if (r.amount_type === 'period') msg = `${tr.promo_ok} +${r.amount} ${tr.days_short}`;
-        else msg = tr.promo_ok;
-        showToast(msg, 'success', 4500);
-        window.dispatchEvent(new Event('db-update'));
-    } catch (e) {
-        const map = { 404: tr.promo_na, 409: tr.promo_choose, 503: tr.promo_retry, 403: tr.promo_na };
-        showToast(map[e.status] || e.message, 'error', 4500);
-    }
-}
-
-// ── Клики (делегирование) ───────────────────────────────────────
-window.addEventListener('click', (e) => {
-    const btn = e.target.closest('button, a');
-    if (!btn) return;
-    e.stopPropagation();
-    if (btn.disabled || btn.classList.contains('disabled')) return;
-
-    if (btn.classList.contains('nav-btn')) { switchTab(btn.dataset.target); return; }
-    if (btn.classList.contains('nav-btn-proxy')) { switchTab(btn.dataset.targetTab); return; }
-
-    if (btn.id === 'theme-toggle-btn') { applyTheme(currentTheme === 'light' ? 'dark' : 'light'); return; }
-    if (btn.id === 'lang-toggle-btn') {
-        const langs = ['ru', 'en'];
-        currentLang = langs[(langs.indexOf(currentLang) + 1) % langs.length];
-        updateLanguage(currentLang);
-        return;
-    }
-    if (btn.id === 'close-modal-btn') { closeModal(); return; }
-    if (btn.classList.contains('open-link-delegate')) { openLink(decodeURI(btn.dataset.url)); return; }
-
-    if (btn.id === 'pay-stars-btn')       { handleStarsPayment(btn); return; }
-    if (btn.id === 'go-to-yoomoney-btn')  { handleYooMoneyPayment(btn); return; }
-    if (btn.id === 'buy-wallet-btn')      { handleWalletBuy(btn); return; }
-
-    if (btn.classList.contains('accordion-btn')) {
-        btn.classList.toggle('active');
-        document.getElementById(btn.dataset.target)?.classList.toggle('open');
-        return;
-    }
-
-    if (isProcessing) { showToast(t().processing, 'info'); return; }
-
-    const lockAction = async (actionFn) => {
-        isProcessing = true;
-        btn.classList.add('disabled');
-        const orig = btn.innerHTML;
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
-        try { await actionFn(); }
-        catch (err) { console.error(err); }
-        finally {
-            setTimeout(() => {
-                isProcessing = false;
-                btn.classList.remove('disabled');
-                if (btn.isConnected) btn.innerHTML = orig;
-            }, 1200);
-        }
-    };
-
-    if (btn.classList.contains('tariff-btn-delegate')) {
-        if (!S.authOk) return showToast(t().auth_needed, 'error');
-        showPaymentModal(parseInt(btn.dataset.months));
-    } else if (btn.id === 'start-trial-btn')   lockAction(startTrial);
-    else if (btn.id === 'promo-btn')           lockAction(redeemPromo);
-    else if (btn.id === 'copy-vless-btn')      lockAction(copyVlessLink);
-    else if (btn.id === 'toggle-qr-btn')       toggleQrCode();
-    else if (btn.id === 'copy-referral-btn') {
-        lockAction(async () => {
-            const link = document.getElementById('referral-link-display').textContent;
-            if (tg?.openTelegramLink) {
-                tg.openTelegramLink(`https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent('Попробуй PLUSVPN! 🔥')}`);
-            } else {
-                await copyText(link, t().link_copied);
-            }
-        });
-    }
-});
-
-document.addEventListener('click', (e) => { if (e.target.id === 'payment-modal') closeModal(); });
-
-document.addEventListener('change', async (e) => {
-    if (e.target.id !== 'autodebit-toggle' || !S.sub) return;
-    const el = e.target, want = el.checked;
-    try {
-        const upd = await api.setAutoDebit(S.sub.id, want);
-        S.sub = { ...S.sub, ...upd };
-        showToast(want ? t().autorenew_on : t().autorenew_off, 'success');
-    } catch (err) {
-        el.checked = !want;
-        showToast(err.message, 'error');
-    }
-});
-
-// ── Тема / язык / вкладки ───────────────────────────────────────
-function applyTheme(theme) {
-    currentTheme = theme;
-    localStorage.setItem('plusvpn_theme', theme);
-    if (theme === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
-    else document.documentElement.removeAttribute('data-theme');
-    const icon = document.querySelector('#theme-toggle-btn i');
-    if (icon) icon.className = theme === 'light' ? 'fas fa-moon' : 'fas fa-sun';
-    const bg = theme === 'light' ? '#e9e1d6' : '#171512';
-    try { tg?.setHeaderColor?.(bg); tg?.setBackgroundColor?.(bg); } catch (e) {}
-}
-
-function updateLanguage(lang) {
-    localStorage.setItem('lang', lang);
-    currentLang = lang;
-    document.documentElement.lang = lang;
-    document.querySelector('#lang-toggle-btn .lang-text').textContent = lang.toUpperCase();
-    document.querySelectorAll('[data-i18n]').forEach(el => {
-        const key = el.getAttribute('data-i18n');
-        if (TRANSLATIONS[lang]?.[key]) el.textContent = TRANSLATIONS[lang][key];
-    });
-    const promo = document.getElementById('promo-input');
-    if (promo) promo.placeholder = TRANSLATIONS[lang].promo_ph || '';
-    renderTariffs();
-    renderInstructionButtons();
-    if (S.authOk) { document.getElementById('start-trial-btn')?.closest('.trial-card')?.replaceChildren(); renderProfile(); }
-}
-
-function switchTab(targetId) {
-    document.querySelectorAll('main section').forEach(s => s.classList.remove('active'));
-    document.getElementById(targetId)?.classList.add('active');
-    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-    document.querySelector(`.nav-btn[data-target="${targetId}"]`)?.classList.add('active');
-}
-
-// ── Утилиты ─────────────────────────────────────────────────────
-window.openLink = (url) => { tg?.openLink ? tg.openLink(url) : window.open(url, '_blank'); };
-
-async function copyText(text, msg) {
-    if (!text || text.includes('...')) return;
-    try {
-        await navigator.clipboard.writeText(text);
-    } catch {
-        const el = document.createElement('textarea');
-        el.value = text;
-        document.body.appendChild(el);
-        el.select();
-        document.execCommand('copy');
-        document.body.removeChild(el);
-    }
-    showToast(msg, 'success');
-}
-
-const LINK_RE = /^(https?|vless):\/\//i;      // теперь это ссылка подписки (https://…), реже — vless://
-
-window.copyVlessLink = async () => {
-    const text = (currentVlessKey || '').trim();
-    if (!LINK_RE.test(text)) return showToast(t().key_inactive, 'error');
-    await copyText(text, t().copied);
-};
-
-window.toggleQrCode = () => {
-    const link = (currentVlessKey || '').trim();
-    const qrDisplay = document.getElementById('qr-code-display');
-    const qrPlaceholder = document.getElementById('qr-code-placeholder');
-    const qrBtn = document.getElementById('toggle-qr-btn');
-
-    if (qrDisplay.style.display === 'block') {
-        qrDisplay.style.display = 'none';
-        qrBtn.classList.remove('active-icon-btn');
-        return;
-    }
-    if (!LINK_RE.test(link)) return showToast(t().key_inactive, 'error');
-    if (!window.QRCode) return showToast('QR library not loaded', 'error');
-
-    qrPlaceholder.innerHTML = '';
-    new QRCode(qrPlaceholder, {
-        text: link, width: 200, height: 200,
-        colorDark: '#0b0f10', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.M,
-    });
-    qrDisplay.style.display = 'block';
-    qrBtn.classList.add('active-icon-btn');
-};
-
-window.generateReferralLink = () => {
-    // Параметр /start — invite_code пользователя из API (ApiUser.invite_code)
-    const code = S.user?.invite_code || (tgUser?.id ? `ref_${tgUser.id}` : '');
-    document.getElementById('referral-link-display').textContent = `https://t.me/${BOT_USERNAME}?start=${code}`;
-};
-
-window.showToast = (msg, type = 'info', dur = 3000) => {
-    const container = document.getElementById('toast-container-box');
-    const toast = document.createElement('div');
-    const icons = { success: 'fa-check-circle', error: 'fa-exclamation-circle', info: 'fa-info-circle' };
-    toast.className = `toast toast-${type}`;
-    toast.innerHTML = `<i class="fas ${icons[type] || icons.info}"></i> <span></span>`;
-    toast.querySelector('span').textContent = msg;          // текст ошибок с сервера — не как HTML
-    container.appendChild(toast);
-    requestAnimationFrame(() => toast.classList.add('toast-show'));
-    setTimeout(() => {
-        toast.classList.remove('toast-show');
-        toast.addEventListener('transitionend', () => toast.remove(), { once: true });
-    }, dur);
 };
