@@ -111,6 +111,11 @@
                     </div>
                 </div>
 
+                <label class="autorenew-row" id="autorenew-row" style="display:none;">
+                    <span><i class="fas fa-rotate"></i> <span data-i18n="autorenew_label">Автопродление</span></span>
+                    <input type="checkbox" id="autodebit-toggle">
+                </label>
+
                 <!-- 2×2 QUICK TILES -->
                 <div class="tile-grid">
                     <button class="tile" id="copy-vless-btn">
@@ -146,6 +151,14 @@
 
                 <div class="tariff-list" id="tariff-grid"></div>
 
+                <div class="card promo-card">
+                    <div class="pm-title"><i class="fas fa-ticket"></i> <span data-i18n="promo_title">Промокод</span></div>
+                    <div class="promo-row">
+                        <input type="text" id="promo-input" class="promo-input" maxlength="32" autocomplete="off" autocapitalize="characters" placeholder="PROMO">
+                        <button class="btn btn-primary" id="promo-btn"><span data-i18n="promo_btn">Применить</span></button>
+                    </div>
+                </div>
+
                 <div class="payment-methods-card">
                     <div class="pm-title"><i class="fas fa-lock"></i> <span data-i18n="pm_title">Способы оплаты</span></div>
                     <div class="pm-icons">
@@ -156,7 +169,7 @@
 
                 <div class="warning-card">
                     <i class="fas fa-circle-info"></i>
-                    <span data-i18n="payment_warning">После оплаты Stars ключ выдаётся автоматически. YooMoney — активация до 5 минут через бота.</span>
+                    <span data-i18n="payment_warning">Баланс пополняется через Stars или ЮMoney, затем подписка покупается с баланса автоматически.</span>
                 </div>
             </section>
 
@@ -235,7 +248,7 @@
             </div>
             <div id="modal-tariff-info" class="modal-info"></div>
 
-            <div class="modal-pay-buttons">
+            <div class="modal-pay-buttons" id="modal-pay-methods">
                 <button class="btn btn-stars" id="pay-stars-btn">
                     <i class="fas fa-star"></i> <span data-i18n="pay_stars_btn">Оплатить Stars</span>
                     <span class="stars-badge" id="stars-badge-amount">0 ⭐</span>
@@ -245,9 +258,13 @@
                 </button>
             </div>
 
-            <div class="warning-card" style="margin-top:14px; font-size:0.82em;">
+            <button class="btn btn-primary btn-full" id="buy-wallet-btn" style="display:none;">
+                <i class="fas fa-wallet"></i> <span data-i18n="buy_wallet_btn">Купить с баланса</span>
+            </button>
+
+            <div class="warning-card" id="modal-warning-card" style="margin-top:14px; font-size:0.82em;">
                 <i class="fas fa-circle-info"></i>
-                <span data-i18n="modal_warning">Stars — мгновенная выдача. ЮMoney — до 5 минут.</span>
+                <span data-i18n="modal_warning">Баланс пополнится на нужную сумму, после оплаты подписка активируется автоматически.</span>
             </div>
         </div>
     </div>
