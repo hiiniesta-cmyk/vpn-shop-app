@@ -237,13 +237,6 @@ main section.active { display: block; }
 [data-theme="dark"] .status-inactive { background: rgba(224,122,99,0.16); }
 [data-theme="dark"] .status-warning  { background: rgba(226,189,102,0.16); }
 
-.node-chip {
-    font-family: var(--font-mono); font-size: 0.7em; font-weight: 500; color: var(--muted);
-    background: var(--inset); border: 1px solid var(--border-soft); border-radius: var(--r-pill);
-    padding: 6px 11px; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
-}
-.node-chip #user-status-badge { font-size: 1.05em; line-height: 1; }
-
 .expiry-row { display: flex; align-items: center; gap: 8px; font-family: var(--font-body); font-size: 0.8em; font-weight: 500; color: var(--muted); min-width: 0; }
 .expiry-row i { color: var(--gold-lo); }
 [data-theme="dark"] .expiry-row i { color: var(--gold-hi); }
@@ -291,9 +284,6 @@ main section.active { display: block; }
 }
 [data-theme="dark"] .tile-icon { color: var(--gold-hi); }
 .tile-label { font-weight: 600; font-size: 0.94em; margin-top: auto; }
-/* тёмные плитки — контраст, как на референсе */
-.tile-dark { background: var(--ink-card); color: var(--on-ink); border-color: transparent; box-shadow: var(--shadow-ink); }
-.tile-dark .tile-icon { background: rgba(255,255,255,0.08); color: var(--gold-hi); }
 /* активный QR */
 .tile.active-icon-btn .tile-icon { background: var(--gold); color: var(--on-gold); }
 
@@ -334,8 +324,8 @@ main section.active { display: block; }
     padding: 0 12px; height: 24px; display: inline-flex; align-items: center; border-radius: var(--r-pill);
     white-space: nowrap; line-height: 1; text-transform: uppercase; max-width: 100%;
 }
-/* резерв места под бейдж у карточек без него — чтобы «месяцы» в ряду были на одной линии */
-.tariff-card:not(.tariff-card-featured) .tariff-period { margin-top: 38px; }
+/* у каждой карточки есть слот бейджа одинаковой высоты (у обычных он пустой) */
+.tariff-badge-empty { visibility: hidden; padding: 0; }
 .tariff-badge-save { background: rgba(78,141,91,0.16); color: var(--green); }
 .tariff-badge-best { background: var(--gold); color: var(--on-gold); }
 
@@ -344,7 +334,7 @@ main section.active { display: block; }
 .tariff-month-label { font-family: var(--font-body); font-size: 0.85em; color: var(--muted); font-weight: 600; }
 
 .tariff-price-block { display: flex; flex-direction: column; align-items: center; gap: 2px; }
-.tariff-oldprice-row { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 20px; margin-bottom: 2px; }
+.tariff-oldprice-row { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 24px; margin-bottom: 2px; }
 .tariff-discount { flex-shrink: 0; font-family: var(--font-body); font-size: 0.7em; font-weight: 700; line-height: 1.2; background: rgba(194,85,65,0.14); color: var(--red); padding: 3px 9px; border-radius: var(--r-pill); }
 .tariff-old-price { font-family: var(--font-body); font-size: 0.78em; color: var(--muted); text-decoration: line-through; }
 .tariff-price { font-family: var(--font-head); font-size: 1.9em; font-weight: 800; line-height: 1; color: var(--heading); letter-spacing: -0.01em; }
@@ -353,9 +343,9 @@ main section.active { display: block; }
 .tariff-stars-price { font-family: var(--font-body); font-size: 0.8em; color: var(--gold-lo); margin-top: 4px; font-weight: 700; }
 [data-theme="dark"] .tariff-stars-price { color: var(--gold-hi); }
 
-.tariff-features { list-style: none; flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; margin: 2px 0; }
-.tariff-features li { font-family: var(--font-body); font-size: 0.76em; font-weight: 500; color: var(--muted); display: flex; align-items: baseline; justify-content: center; gap: 6px; min-width: 0; overflow-wrap: anywhere; line-height: 1.35; }
-.tariff-features li i { color: var(--gold-lo); font-size: 0.78em; flex-shrink: 0; }
+.tariff-features { list-style: none; flex: 1; align-self: stretch; display: flex; flex-direction: column; align-items: stretch; gap: 8px; margin: 4px 0 2px; padding: 12px 4px 0; border-top: 1px solid var(--border-soft); text-align: left; }
+.tariff-features li { font-family: var(--font-body); font-size: 0.76em; font-weight: 500; color: var(--muted); display: grid; grid-template-columns: 14px 1fr; column-gap: 8px; align-items: baseline; text-align: left; min-width: 0; overflow-wrap: anywhere; line-height: 1.35; }
+.tariff-features li i { color: var(--gold-lo); font-size: 0.78em; text-align: center; }
 [data-theme="dark"] .tariff-features li i { color: var(--gold-hi); }
 
 .btn-tariff {
@@ -513,3 +503,10 @@ main section.active { display: block; }
 .promo-row { display: flex; gap: 10px; }
 .promo-input { flex: 1; min-width: 0; font-family: var(--font-mono); font-size: 0.9em; letter-spacing: 0.06em; text-transform: uppercase; color: var(--heading); background: var(--panel-2); border: 1px solid var(--border); border-radius: var(--r-btn); padding: 12px 14px; outline: none; }
 .promo-input:focus { border-color: var(--gold); }
+
+/* ── Иконка «корзина» (Material ShoppingCart) ── */
+.icon-cart { width: 1em; height: 1em; fill: currentColor; flex-shrink: 0; display: inline-block; vertical-align: -0.14em; }
+.head-pill.head-icon .icon-cart { color: var(--gold-hi); font-size: 1.45em; }
+.tile-icon .icon-cart { font-size: 1.15em; }
+.bottom-nav .nav-btn .icon-cart { font-size: 1.25em; vertical-align: 0; }
+.btn-tariff .icon-cart { font-size: 1.15em; vertical-align: 0; }
