@@ -23,6 +23,8 @@
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+    <!-- Material Icons «ShoppingCart» (@mui/icons-material) -->
+    <svg width="0" height="0" style="position:absolute" aria-hidden="true"><symbol id="icon-cart" viewBox="0 0 24 24"><path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2M1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12.9-1.63h7.45c.75 0 1.41-.41 1.75-1.03l3.58-6.49c.08-.14.12-.31.12-.48 0-.55-.45-1-1-1H5.21l-.94-2zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2"/></symbol></svg>
     <div id="toast-container-box" class="toast-container"></div>
 
     <!-- TOP BAR -->
@@ -89,7 +91,6 @@
                                 <span data-i18n="expiry_label">Истекает:</span>
                                 <span id="expiry-date" class="expiry-val">—</span>
                             </div>
-                            <div class="node-chip"><span id="user-status-badge">—</span> DE-2 · reality</div>
                         </div>
 
                         <div id="days-progress-wrap" style="display:none;">
@@ -122,12 +123,12 @@
                         <span class="tile-icon"><i class="fas fa-copy"></i></span>
                         <span class="tile-label" data-i18n="tile_copy">Копировать</span>
                     </button>
-                    <button class="tile tile-dark" id="toggle-qr-btn">
+                    <button class="tile" id="toggle-qr-btn">
                         <span class="tile-icon"><i class="fas fa-qrcode"></i></span>
                         <span class="tile-label" data-i18n="tile_qr">QR-код</span>
                     </button>
-                    <button class="tile tile-dark nav-btn-proxy" data-target-tab="billing">
-                        <span class="tile-icon"><i class="fas fa-bolt"></i></span>
+                    <button class="tile nav-btn-proxy" data-target-tab="billing">
+                        <span class="tile-icon"><svg class="icon-cart" aria-hidden="true"><use href="#icon-cart"></use></svg></span>
                         <span class="tile-label" data-i18n="tile_renew">Продлить</span>
                     </button>
                     <button class="tile nav-btn-proxy" data-target-tab="referral">
@@ -146,7 +147,7 @@
                         <h1 class="page-title" data-i18n="title_tariffs">Тарифы</h1>
                         <p class="page-sub" data-i18n="tariffs_sub">Оплата через Telegram Stars ⭐</p>
                     </div>
-                    <div class="head-pill head-icon"><i class="fas fa-bolt"></i></div>
+                    <div class="head-pill head-icon"><svg class="icon-cart" aria-hidden="true"><use href="#icon-cart"></use></svg></div>
                 </div>
 
                 <div class="tariff-list" id="tariff-grid"></div>
@@ -231,7 +232,7 @@
     <!-- BOTTOM NAV -->
     <nav class="bottom-nav">
         <button class="nav-btn active" data-target="profile" aria-label="Профиль"><i class="fas fa-shield-halved"></i></button>
-        <button class="nav-btn" data-target="billing" aria-label="Тарифы"><i class="fas fa-bolt"></i></button>
+        <button class="nav-btn" data-target="billing" aria-label="Тарифы"><svg class="icon-cart" aria-hidden="true"><use href="#icon-cart"></use></svg></button>
         <button class="nav-btn" data-target="instructions" aria-label="Настройка"><i class="fas fa-mobile-alt"></i></button>
         <button class="nav-btn" data-target="referral" aria-label="Рефералка"><i class="fas fa-users"></i></button>
     </nav>
