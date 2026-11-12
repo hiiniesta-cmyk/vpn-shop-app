@@ -21,7 +21,7 @@ const DEFAULT_FEATURES = ['feat_unlimited', 'feat_vless', 'feat_support'];
 let tg = null, tgUser = null, tgInitData = '';
 let currentLang  = localStorage.getItem('lang') || 'ru';
 let currentTheme = localStorage.getItem('plusvpn_theme') || 'light';
-let API_BASE     = localStorage.getItem('plusvpn_api_base') || API_BASE_DEF;;
+let API_BASE     = localStorage.getItem('plusvpn_api_base') || API_BASE_DEF;
 let api = new PlusVpnAPI({ baseUrl: API_BASE });
 
 let isProcessing = false;       // антиспам обычных кнопок
@@ -182,8 +182,6 @@ function renderProfile() {
     const vlessDisplay = document.getElementById('vless-link-display');
     const trialCard = document.getElementById('trial-card-status');
     const renewContainer = document.getElementById('renew-container');
-    const qrBtn = document.getElementById('toggle-qr-btn');
-    const statusBadge = document.getElementById('user-status-badge');
     const progressWrap = document.getElementById('days-progress-wrap');
     const daysBarFill = document.getElementById('days-bar-fill');
     const daysLeftLabel = document.getElementById('days-left-label');
@@ -204,16 +202,13 @@ function renderProfile() {
     if (!sub) {
         indicator.textContent = tr.status_inactive;
         indicator.className = 'status-pill status-inactive';
-        statusBadge.textContent = '🔴';
         vlessDisplay.innerHTML = `<span class="key-placeholder">${tr.key_inactive}</span>`;
         expiryEl.textContent = '—';
         progressWrap.style.display = 'none';
-        if (qrBtn) qrBtn.disabled = true;
     } else if (isActive) {
         const warn = daysLeft < 5 || sub.status === 'expiring';
         indicator.textContent = `${warn ? '⚠️' : '✓'} ${tr.status_active}`;
         indicator.className = `status-pill ${warn ? 'status-warning' : 'status-active'}`;
-        statusBadge.textContent = warn ? '⚠️' : '🟢';
         expiryEl.textContent = new Date(expiryTime).toLocaleDateString(currentLang, { year: 'numeric', month: 'long', day: 'numeric' });
         setKeyDisplay(vlessDisplay, tr.key_active, currentVlessKey);
 
@@ -224,16 +219,13 @@ function renderProfile() {
             ? 'linear-gradient(90deg, #c25541, #ddb863)'
             : 'linear-gradient(90deg, #ddb863, #c7a24c)';
         daysLeftLabel.textContent = `${tr.days_left} ${daysLeft}`;
-        if (qrBtn) qrBtn.disabled = false;
     } else {
         indicator.textContent = tr.status_expired;
         indicator.className = 'status-pill status-inactive';
-        statusBadge.textContent = '🔴';
         expiryEl.textContent = tr.status_expired;
         progressWrap.style.display = 'none';
         if (currentVlessKey) setKeyDisplay(vlessDisplay, tr.key_active, currentVlessKey);
         else vlessDisplay.innerHTML = `<span class="key-placeholder">${tr.key_inactive}</span>`;
-        if (qrBtn) qrBtn.disabled = !currentVlessKey;
     }
 
     // автопродление — только для активной подписки
@@ -281,11 +273,11 @@ function renderTariffs() {
         const full = base ? base.price * tier.months : 0;
         const discountPct = (base && tier.months > 1 && full > tier.price) ? Math.round((1 - tier.price / full) * 100) : 0;
         const badgeHtml = meta.badge
-            ? `<span class="tariff-badge tariff-badge-${meta.badge}">${meta.badge === 'save' ? tr.save : tr.best}</span>` : '';
+            ? `<span class="tariff-badge tariff-badge-${meta.badge}">${meta.badge === 'save' ? tr.save : tr.best}</span>`
+            : '<span class="tariff-badge tariff-badge-empty" aria-hidden="true"></span>';   // пустой слот — чтобы всё выровнялось
         const discountHtml = discountPct > 0 ? `<span class="tariff-discount">−${discountPct}%</span>` : '';
         const oldPrice = discountPct > 0 ? `<span class="tariff-old-price">${full.toFixed(0)} ₽</span>` : '';
-        const features = [...(meta.features || DEFAULT_FEATURES).map(k => tr[k] || k),
-                          ...(discountPct > 0 ? [`${discountPct}% ${tr.off}`] : [])];
+        const features = (meta.features || DEFAULT_FEATURES).map(k => tr[k] || k);
 
         return `
         <div class="tariff-card ${meta.badge ? 'tariff-card-featured' : ''}">
@@ -303,7 +295,7 @@ function renderTariffs() {
                 ${features.map(f => `<li><i class="fas fa-check"></i> ${f}</li>`).join('')}
             </ul>
             <button class="btn btn-tariff tariff-btn-delegate" data-months="${tier.months}">
-                <i class="fas fa-bolt"></i> ${tr.select_btn}
+                <svg class="icon-cart" aria-hidden="true"><use href="#icon-cart"></use></svg> ${tr.select_btn}
             </button>
         </div>`;
     }).join('');
